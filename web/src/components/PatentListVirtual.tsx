@@ -2,7 +2,8 @@ import { useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Clock, MapPin, FileText } from 'lucide-react'
+import { Clock, MapPin } from 'lucide-react'
+import { PredictiveDisclaimer } from '@/components/PredictiveDisclaimer'
 
 interface Patent {
   patent_number: string
@@ -168,15 +169,11 @@ export function PatentListVirtual({ patents, onPatentClick }: PatentListVirtualP
 
                   {/* Predicted Warning */}
                   {predicted && (
-                    <div className="mt-3 pt-3 border-t border-amber-200">
-                      <div className="flex items-start gap-2">
-                        <FileText className="h-3.5 w-3.5 text-amber-600 flex-shrink-0 mt-0.5" />
-                        <p className="text-xs text-amber-800">
-                          <strong>Confiança: {patent.confidence_score?.toFixed(2) || 'N/A'}</strong> - 
-                          Não confirmado. Use apenas para planejamento de FTO.
-                        </p>
-                      </div>
-                    </div>
+                    <PredictiveDisclaimer
+                      confidence_tier={patent.confidence_tier}
+                      confidence_score={patent.confidence_score}
+                      variant="compact"
+                    />
                   )}
                 </div>
               </Card>

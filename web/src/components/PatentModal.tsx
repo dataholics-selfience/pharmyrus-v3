@@ -16,10 +16,11 @@ import { Button } from '@/components/ui/button'
 import { 
   Clock, MapPin, Building2, User, FileText, 
   ExternalLink, Calendar, Shield, AlertCircle,
-  TrendingUp, Scale
+  TrendingUp, Scale, GitMerge
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PatentAIAnalysis } from '@/components/PatentAIAnalysis'
+import { PredictiveDisclaimer } from '@/components/PredictiveDisclaimer'
 
 interface Patent {
   patent_number: string
@@ -144,23 +145,12 @@ export function PatentModal({ patent, open, onOpenChange, jobId }: PatentModalPr
 
             {/* Predicted Warning */}
             {isPredicted && (
-              <Card className="border-amber-200 bg-amber-50">
-                <CardContent className="pt-4">
-                  <div className="flex gap-3">
-                    <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                    <div className="text-sm">
-                      <p className="font-semibold text-amber-900">Patente Prevista - Não Confirmada</p>
-                      <p className="text-amber-800 mt-1">
-                        Nível de confiança: <strong>{(patent.confidence_score || 0).toFixed(2)}</strong> ({patent.confidence_tier})
-                      </p>
-                      <p className="text-amber-800 mt-1">
-                        Esta patente foi inferida através de análise de família PCT e padrões de depositante. 
-                        <strong> Verificação independente junto ao INPI é obrigatória</strong> antes de uso em análises de FTO.
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              <PredictiveDisclaimer
+                confidence_tier={patent.confidence_tier}
+                confidence_score={patent.confidence_score}
+                warnings={(patent as any)._predictionData?.warnings}
+                variant="full"
+              />
             )}
 
             {/* Bibliographic Data */}
@@ -350,7 +340,10 @@ export function PatentModal({ patent, open, onOpenChange, jobId }: PatentModalPr
           <TabsContent value="family" className="space-y-4 mt-4">
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm">Família de Patentes</CardTitle>
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <GitMerge className="h-4 w-4" />
+                  Família de Patentes
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -372,9 +365,78 @@ export function PatentModal({ patent, open, onOpenChange, jobId }: PatentModalPr
                     </div>
                   )}
 
-                  <p className="text-sm text-muted-foreground">
-                    Informações detalhadas da família de patentes em desenvolvimento.
-                  </p>
+                  {/* All Variants (from merged patents) */}
+                  {(patent as any)._allVariants && (patent as any)._allVariants.length > 1 && (
+                    <div className="border-t pt-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <GitMerge className="h-4 w-4 text-muted-foreground" />
+                        <p className="text-sm font-semibold">
+                          Variantes Mescladas ({(patent as any)._allVariants.length})
+                        </p>
+                      </div>
+                      <p className="text-xs text-muted-foreground mb-3">
+                        Patentes com sufixos (A2, B1, etc.) mescladas automaticamente
+                      </p>
+                      <div className="space-y-2">
+                        {(patent as any)._allVariants.map((variant: any, idx: number) => (
+                          <div key={idx} className="flex items-center gap-2 p-2 bg-muted/30 rounded border-dashed border">
+                            <Badge variant="secondary" className="font-mono text-xs">
+                              {variant.number}
+                            </Badge>
+                            <Badge variant="outline" className="text-xs">
+                              {variant.type}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {variant.description}
+                            </span>
+                            {!variant.hasData && (
+                              <Badge variant="outline" className="text-xs text-muted-foreground ml-auto">
+                                Sem dados
+                              </Badge>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Family Variants (from patent processing) */}
+                  {(patent as any)._familyVariants && (patent as any)._familyVariants.length > 0 && (
+                    <div className="border-t pt-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                        <p className="text-sm font-semibold">
+                          Variantes da Família ({(patent as any)._familyVariants.length})
+                        </p>
+                      </div>
+                      <p className="text-xs text-muted-foreground mb-3">
+                        Outras variantes encontradas desta família de patentes
+                      </p>
+                      <div className="space-y-2">
+                        {(patent as any)._familyVariants.map((variant: any, idx: number) => (
+                          <div key={idx} className="flex items-center gap-2 p-2 bg-muted/30 rounded border-dashed border">
+                            <Badge variant="secondary" className="font-mono text-xs">
+                              {variant.number}
+                            </Badge>
+                            <Badge variant="outline" className="text-xs">
+                              {variant.source}
+                            </Badge>
+                            {!variant.hasData && (
+                              <Badge variant="outline" className="text-xs text-muted-foreground ml-auto">
+                                Sem dados válidos
+                              </Badge>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {(!patent.wo_number && !patent.pct_number && !(patent as any)._allVariants && !(patent as any)._familyVariants) && (
+                    <p className="text-sm text-muted-foreground">
+                      Informações detalhadas da família de patentes em desenvolvimento.
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </Card>
