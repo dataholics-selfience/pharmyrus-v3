@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -15,6 +15,47 @@ export function LandingPage() {
   const [molecule, setMolecule] = useState('')
   const [brand, setBrand] = useState('')
   const [countries, setCountries] = useState<string[]>(['BR'])
+
+  // Carregar campos salvos do localStorage ao montar componente
+  useEffect(() => {
+    const camposSalvos = localStorage.getItem('pharmyrus-search-fields')
+    if (camposSalvos) {
+      const campos = JSON.parse(camposSalvos)
+      setMolecule(campos.molecule || '')
+      setBrand(campos.brand || '')
+      setCountries(campos.countries || ['BR'])
+      console.log('✅ Campos de busca carregados:', campos)
+    }
+  }, [])
+
+  // Salvar campos no localStorage quando mudarem
+  const salvarCampos = (mol: string, brn: string, cntr: string[]) => {
+    const campos = {
+      molecule: mol,
+      brand: brn,
+      countries: cntr
+    }
+    localStorage.setItem('pharmyrus-search-fields', JSON.stringify(campos))
+    console.log('💾 Campos salvos no localStorage:', campos)
+  }
+
+  // Atualizar molecule e salvar
+  const handleMoleculeChange = (value: string) => {
+    setMolecule(value)
+    salvarCampos(value, brand, countries)
+  }
+
+  // Atualizar brand e salvar
+  const handleBrandChange = (value: string) => {
+    setBrand(value)
+    salvarCampos(molecule, value, countries)
+  }
+
+  // Atualizar countries e salvar
+  const handleCountriesChange = (value: string[]) => {
+    setCountries(value)
+    salvarCampos(molecule, brand, value)
+  }
 
   const handleSignOut = async () => {
     try {
@@ -41,6 +82,9 @@ export function LandingPage() {
     }
 
     console.log('🚀 Executing search:', { molecule, brand, countries, user: user?.email || 'NO USER' })
+    
+    // Salvar antes de navegar (garantir persistência)
+    salvarCampos(molecule.trim(), brand.trim(), countries)
     
     navigate('/search', { 
       state: { 
@@ -123,7 +167,7 @@ export function LandingPage() {
                     type="text"
                     placeholder="Nome da molécula (ex: darolutamide)"
                     value={molecule}
-                    onChange={(e) => setMolecule(e.target.value)}
+                    onChange={(e) => handleMoleculeChange(e.target.value)}
                     className="h-12 text-base"
                     autoFocus
                   />
@@ -134,7 +178,7 @@ export function LandingPage() {
                     type="text"
                     placeholder="Nome comercial (opcional)"
                     value={brand}
-                    onChange={(e) => setBrand(e.target.value)}
+                    onChange={(e) => handleBrandChange(e.target.value)}
                     className="h-12 text-base"
                   />
                 </div>
@@ -142,7 +186,7 @@ export function LandingPage() {
                 <div className="space-y-2">
                   <CountryMultiSelect
                     value={countries}
-                    onChange={setCountries}
+                    onChange={handleCountriesChange}
                   />
                 </div>
 
