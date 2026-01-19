@@ -425,6 +425,18 @@ export function ResultsScientificPage() {
     }
   }
 
+  // Create enriched data for Dr. Root with processed patents
+  const enrichedPatentData = useMemo(() => ({
+    ...result,
+    all_patents: processedPatents, // ← KEY: Replace with processed patents!
+    metadata: {
+      ...metadata,
+      total_processed: processedPatents.length,
+      confirmed_count: processedPatents.filter(p => !(p as any)._isPrediction).length,
+      predicted_count: processedPatents.filter(p => (p as any)._isPrediction).length
+    }
+  }), [result, processedPatents, metadata])
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -816,7 +828,7 @@ export function ResultsScientificPage() {
 
       {/* Dr. Root Chat Panel */}
       <ChatPanel
-        patentData={result}
+        patentData={enrichedPatentData}
         onPatentClick={handleChatPatentClick}
         onPatentListClick={(filterOrPatents: any, title: string) => {
           // Se receber string de filtro, converter para array de patentes

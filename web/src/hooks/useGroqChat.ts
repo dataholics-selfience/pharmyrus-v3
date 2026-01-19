@@ -15,6 +15,13 @@ export function useGroqChat(patentData: any) {
 
   const apiKey = import.meta.env.VITE_GROQ_API_KEY
 
+  // Debug: Log patent data on initialization
+  console.log('[Dr. Root] Initialized with patent data:', {
+    hasData: !!patentData,
+    allPatentsCount: patentData?.all_patents?.length || 0,
+    metadata: patentData?.metadata
+  })
+
   const sendMessage = useCallback(async (userMessage: string) => {
     if (!apiKey) {
       setError('Groq API key not configured')
@@ -46,6 +53,15 @@ export function useGroqChat(patentData: any) {
         }
       ]
 
+      // Generate system prompt with patent data
+      const systemPrompt = generateDrRootPrompt(patentData)
+      
+      console.log('[Dr. Root] System prompt generated:', {
+        promptLength: systemPrompt.length,
+        patentsInPrompt: (systemPrompt.match(/patentes/g) || []).length,
+        hasAllPatents: systemPrompt.includes('Total de Patentes')
+      })
+
       // Call Groq API
       const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
@@ -58,7 +74,7 @@ export function useGroqChat(patentData: any) {
           messages: [
             {
               role: 'system',
-              content: generateDrRootPrompt(patentData)
+              content: systemPrompt // ← Use generated prompt
             },
             ...conversationHistory
           ],
