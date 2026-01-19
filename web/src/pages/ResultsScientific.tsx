@@ -19,6 +19,8 @@ import { MoleculeViewer } from '@/components/MoleculeViewer'
 import { MoleculeCard } from '@/components/MoleculeCard'
 import { TimelineModal } from '@/components/TimelineModal'
 import { ConfidenceModal } from '@/components/ConfidenceModal'
+import { ChatPanel } from '@/components/DrRoot/ChatPanel'
+import { PatentListModal } from '@/components/DrRoot/PatentListModal'
 import { useExportExcel } from '@/hooks/useExportExcel'
 import { AIAnalysisCard } from '@/components/AIAnalysisCard'
 import { 
@@ -122,6 +124,17 @@ export function ResultsScientificPage() {
   const [timelineModalOpen, setTimelineModalOpen] = useState(false)
   const [selectedYear, setSelectedYear] = useState<number | null>(null)
   const [confidenceModalOpen, setConfidenceModalOpen] = useState(false)
+  
+  // Dr. Root chat states
+  const [chatListModal, setChatListModal] = useState<{
+    open: boolean
+    patents: Patent[]
+    title: string
+  }>({
+    open: false,
+    patents: [],
+    title: ''
+  })
 
   if (!result) {
     return (
@@ -374,6 +387,41 @@ export function ResultsScientificPage() {
       if (!csvResult.success) {
         alert('Erro ao exportar dados')
       }
+    }
+  }
+
+  // Dr. Root handlers
+  const handleChatPatentClick = (patentNumber: string) => {
+    const patent = processedPatents.find(p => p.patent_number === patentNumber)
+    if (patent) {
+      setSelectedPatent(patent)
+    }
+  }
+
+  const handleChatPatentListClick = (patents: Patent[], title: string) => {
+    setChatListModal({
+      open: true,
+      patents,
+      title
+    })
+  }
+
+  const filterPatentsByType = (filter: string): Patent[] => {
+    switch (filter) {
+      case 'all':
+        return processedPatents
+      case 'confirmed':
+        return processedPatents.filter(p => !(p as any)._isPrediction)
+      case 'predicted':
+        return processedPatents.filter(p => (p as any)._isPrediction)
+      case 'expiring-soon':
+        return processedPatents
+          .filter(p => p.years_until_expiration && p.years_until_expiration < 3)
+          .sort((a, b) => (a.years_until_expiration || 0) - (b.years_until_expiration || 0))
+      case 'high-risk':
+        return processedPatents.filter(p => p.years_until_expiration && p.years_until_expiration < 2)
+      default:
+        return processedPatents
     }
   }
 
@@ -764,6 +812,33 @@ export function ResultsScientificPage() {
         onOpenChange={setConfidenceModalOpen}
         data={confidenceData}
         totalPatents={totalConfidencePatents}
+      />
+
+      {/* Dr. Root Chat Panel */}
+      <ChatPanel
+        patentData={result}
+        onPatentClick={handleChatPatentClick}
+        onPatentListClick={(filterOrPatents: any, title: string) => {
+          // Se receber string de filtro, converter para array de patentes
+          const patents = typeof filterOrPatents === 'string' 
+            ? filterPatentsByType(filterOrPatents)
+            : filterOrPatents
+          
+          handleChatPatentListClick(patents, title)
+        }}
+        onReportGenerate={(reportType, data) => {
+          console.log('Generate report:', reportType, data)
+          // TODO: Implement report generation in Phase 2
+        }}
+      />
+
+      {/* Patent List Modal from Chat */}
+      <PatentListModal
+        open={chatListModal.open}
+        onOpenChange={(open) => setChatListModal(prev => ({ ...prev, open }))}
+        patents={chatListModal.patents}
+        title={chatListModal.title}
+        onPatentClick={setSelectedPatent}
       />
     </div>
   )
