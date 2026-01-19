@@ -62,9 +62,36 @@ export function PatentModal({ patent, open, onOpenChange, jobId }: PatentModalPr
   if (!patent) return null
 
   const isPredicted = patent.confidence_tier && 
-    ['PREDICTED', 'EXPECTED', 'SPECULATIVE', 'INFERRED'].includes(patent.confidence_tier)
+    ['PREDICTED', 'EXPECTED', 'SPECULATIVE', 'INFERRED', 'FOUND'].includes(patent.confidence_tier)
 
-  const yearsUntilExp = patent.years_until_expiration || 0
+  // Para patentes preditas, calcular expiração estimada
+  const calculatePredictedExpiration = () => {
+    if (!isPredicted) return null
+    
+    const predData = (patent as any)._predictionData
+    if (!predData?.filingWindow) return null
+    
+    // PCT deadline + 20 anos (padrão)
+    const deadline = new Date(predData.filingWindow.pct_30month_deadline)
+    const estimatedFiling = new Date(deadline)
+    estimatedFiling.setFullYear(deadline.getFullYear() + 20)
+    
+    return estimatedFiling
+  }
+
+  const predictedExpiration = calculatePredictedExpiration()
+  
+  // Calcular anos até expiração
+  const calculateYearsUntilExp = () => {
+    if (isPredicted && predictedExpiration) {
+      const now = new Date()
+      const years = (predictedExpiration.getTime() - now.getTime()) / (1000 * 60 * 60 * 24 * 365.25)
+      return Math.max(0, years)
+    }
+    return patent.years_until_expiration || 0
+  }
+  
+  const yearsUntilExp = calculateYearsUntilExp()
   
   const getStatusColor = () => {
     if (yearsUntilExp < 2) return { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-900' }
@@ -73,6 +100,17 @@ export function PatentModal({ patent, open, onOpenChange, jobId }: PatentModalPr
   }
 
   const statusColors = getStatusColor()
+
+  // Componente de disclaimer legal reutilizável
+  const LegalDisclaimer = () => (
+    <div className="bg-muted rounded-lg p-4">
+      <p className="text-xs text-muted-foreground">
+        <strong>Aviso Legal:</strong> Esta análise é gerada automaticamente e tem caráter informativo. 
+        Não constitui aconselhamento jurídico. Para análises de liberdade de operação (FTO), 
+        consulte profissionais especializados em propriedade intelectual.
+      </p>
+    </div>
+  )
 
   const InfoRow = ({ label, value, icon: Icon }: { label: string; value: string; icon?: any }) => (
     <div className="flex items-center gap-3 py-2">
@@ -113,11 +151,11 @@ export function PatentModal({ patent, open, onOpenChange, jobId }: PatentModalPr
 
         {/* Tabs */}
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className={cn("grid w-full", isPredicted ? "grid-cols-4" : "grid-cols-5")}>
             <TabsTrigger value="overview">Visão Geral</TabsTrigger>
             <TabsTrigger value="family">Família</TabsTrigger>
             <TabsTrigger value="legal">Status Legal</TabsTrigger>
-            <TabsTrigger value="claims">Reivindicações</TabsTrigger>
+            {!isPredicted && <TabsTrigger value="claims">Reivindicações</TabsTrigger>}
             <TabsTrigger value="analysis">Análise</TabsTrigger>
           </TabsList>
 
@@ -125,23 +163,40 @@ export function PatentModal({ patent, open, onOpenChange, jobId }: PatentModalPr
           <TabsContent value="overview" className="space-y-4 mt-4">
             
             {/* Patent Cliff Highlight */}
-            <Card className={cn("p-4", statusColors.bg, statusColors.border)}>
-              <div className="flex items-center gap-4">
-                <Clock className="h-10 w-10 text-current" />
-                <div className="flex-1">
-                  <p className="text-sm text-muted-foreground">Data de Expiração</p>
-                  <p className={cn("text-3xl font-bold", statusColors.text)}>
-                    {new Date(patent.expiration_date).toLocaleDateString('pt-BR')}
-                  </p>
-                  <p className="text-sm mt-1">
-                    {yearsUntilExp.toFixed(1)} anos restantes
-                    {yearsUntilExp < 2 && ' - CRÍTICO'}
-                    {yearsUntilExp >= 2 && yearsUntilExp < 5 && ' - ATENÇÃO'}
-                    {yearsUntilExp >= 5 && ' - SEGURO'}
-                  </p>
+            {!isPredicted ? (
+              <Card className={cn("p-4", statusColors.bg, statusColors.border)}>
+                <div className="flex items-center gap-4">
+                  <Clock className="h-10 w-10 text-current" />
+                  <div className="flex-1">
+                    <p className="text-sm text-muted-foreground">Data de Expiração</p>
+                    <p className={cn("text-3xl font-bold", statusColors.text)}>
+                      {new Date(patent.expiration_date).toLocaleDateString('pt-BR')}
+                    </p>
+                    <p className="text-sm mt-1">
+                      {yearsUntilExp.toFixed(1)} anos restantes
+                      {yearsUntilExp < 2 && ' - CRÍTICO'}
+                      {yearsUntilExp >= 2 && yearsUntilExp < 5 && ' - ATENÇÃO'}
+                      {yearsUntilExp >= 5 && ' - SEGURO'}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </Card>
+              </Card>
+            ) : (
+              <Card className="p-4 border-amber-200 bg-amber-50/30">
+                <div className="flex items-center gap-4">
+                  <Clock className="h-10 w-10 text-amber-600" />
+                  <div className="flex-1">
+                    <p className="text-sm text-muted-foreground">Data de Expiração Estimada</p>
+                    <p className="text-3xl font-bold text-amber-900">
+                      {predictedExpiration ? predictedExpiration.toLocaleDateString('pt-BR') : 'Aguardando publicação'}
+                    </p>
+                    <p className="text-sm mt-1 text-amber-800">
+                      ~{yearsUntilExp.toFixed(1)} anos estimados (baseado em PCT + 20 anos)
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            )}
 
             {/* Predicted Warning */}
             {isPredicted && (
@@ -223,7 +278,9 @@ export function PatentModal({ patent, open, onOpenChange, jobId }: PatentModalPr
             </div>
 
             {/* Applicants */}
-            {patent.applicants && patent.applicants.length > 0 && (
+            {patent.applicants && patent.applicants.length > 0 && 
+             patent.applicants[0] !== 'Unknown' && 
+             patent.applicants[0] !== 'Desconhecido' && (
               <Card>
                 <CardHeader>
                   <CardTitle className="text-sm flex items-center gap-2">
@@ -334,6 +391,9 @@ export function PatentModal({ patent, open, onOpenChange, jobId }: PatentModalPr
                 )}
               </CardContent>
             </Card>
+
+            {/* Legal Disclaimer */}
+            <LegalDisclaimer />
           </TabsContent>
 
           {/* Family Tab */}
@@ -440,6 +500,9 @@ export function PatentModal({ patent, open, onOpenChange, jobId }: PatentModalPr
                 </div>
               </CardContent>
             </Card>
+
+            {/* Legal Disclaimer */}
+            <LegalDisclaimer />
           </TabsContent>
 
           {/* Legal Status Tab */}
@@ -481,12 +544,18 @@ export function PatentModal({ patent, open, onOpenChange, jobId }: PatentModalPr
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground">
-                      Eventos legais não disponíveis. Consulte o INPI para informações atualizadas.
+                      {isPredicted 
+                        ? 'Eventos legais não disponíveis ainda. O INPI será consultado e assim que esta predição se concretizar, atualizaremos esta patente.'
+                        : 'Eventos legais não disponíveis. Consulte o INPI para informações atualizadas.'
+                      }
                     </p>
                   )}
                 </div>
               </CardContent>
             </Card>
+
+            {/* Legal Disclaimer */}
+            <LegalDisclaimer />
           </TabsContent>
 
           {/* Claims Tab */}
@@ -554,9 +623,9 @@ export function PatentModal({ patent, open, onOpenChange, jobId }: PatentModalPr
                       Análise de importância estratégica baseada em:
                     </p>
                     <ul className="text-sm text-muted-foreground mt-2 space-y-1 ml-4 list-disc">
-                      <li>Prazo até expiração: <strong>{yearsUntilExp.toFixed(1)} anos</strong></li>
-                      <li>Depositantes: <strong>{patent.applicants.length}</strong></li>
-                      <li>Classificação IPC: <strong>{patent.ipc_codes?.length || 0} classes</strong></li>
+                      <li>Prazo até expiração: <strong>{yearsUntilExp.toFixed(1)} anos{isPredicted ? ' (estimado)' : ''}</strong></li>
+                      <li>Depositantes: <strong>{patent.applicants.filter(a => a !== 'Unknown' && a !== 'Desconhecido').length || 'A definir'}</strong></li>
+                      <li>Classificação IPC: <strong>{patent.ipc_codes?.length || 0} classes{isPredicted && patent.ipc_codes?.length === 0 ? ' (aguardando publicação)' : ''}</strong></li>
                       {isPredicted && (
                         <li className="text-amber-700">
                           ⚠️ Patente prevista - confirmação necessária

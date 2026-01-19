@@ -40,7 +40,7 @@ export function RDModal({
                 Pesquisa & Desenvolvimento
               </DialogTitle>
               <DialogDescription>
-                Dados moleculares, ensaios clínicos, aprovações regulatórias e literatura científica para {moleculeName}
+                Informações científicas e regulatórias para {moleculeName}
               </DialogDescription>
             </div>
           </div>

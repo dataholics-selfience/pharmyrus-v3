@@ -180,6 +180,12 @@ Seja objetivo, técnico e baseado nos dados fornecidos. Use linguagem profission
     setLoading(true)
     setError(null)
 
+    // Check if patent is predicted
+    const isPredicted = patent.confidence_tier && 
+      ['PREDICTED', 'EXPECTED', 'SPECULATIVE', 'INFERRED', 'FOUND'].includes(patent.confidence_tier)
+    
+    const predictionData = (patent as any)._predictionData
+
     // Check cache first if jobId provided
     if (jobId) {
       try {
@@ -204,14 +210,48 @@ Seja objetivo, técnico e baseado nos dados fornecidos. Use linguagem profission
       }
     }
 
-    const prompt = `Você é um especialista em análise de patentes farmacêuticas. Analise a seguinte patente:
+    // Different prompt for predicted patents
+    const prompt = isPredicted ? 
+      `Você é um especialista em análise PREDITIVA de patentes farmacêuticas. Analise a seguinte PATENTE PREVISTA:
+
+⚠️ IMPORTANTE: ESTA É UMA PREDIÇÃO, NÃO UMA PATENTE PUBLICADA
+
+NÚMERO WO: ${patent.patent_number}
+TÍTULO: ${patent.title}
+DEPOSITANTE(S): ${patent.applicants.join(', ')}
+TIER DE CONFIANÇA: ${patent.confidence_tier} (${((patent as any).confidence_score * 100).toFixed(0)}% de confiança)
+METODOLOGIA: ${predictionData?.eventType || 'Análise de família PCT + padrões de depositante'}
+
+${predictionData?.warnings ? `
+AVISOS:
+${predictionData.warnings.slice(0, 3).join('\n')}
+` : ''}
+
+JANELA DE PUBLICAÇÃO ESPERADA: ${predictionData?.filingWindow?.publication_expected || 'Aguardando'}
+
+Forneça uma análise técnica em português brasileiro cobrindo:
+
+1. **Natureza da Predição**: Explique claramente que se trata de uma INFERÊNCIA baseada em família PCT, não uma patente confirmada.
+2. **Metodologia Utilizada**: Descreva como foi identificada (análise de cronogramas PCT Art. 22/39 + comportamento de depositante).
+3. **Nível de Confiança**: Interprete o tier "${patent.confidence_tier}" e o score de ${((patent as any).confidence_score * 100).toFixed(0)}%.
+4. **Janela Cega de 18 Meses**: Explique que patentes recentes permanecem confidenciais por lei.
+5. **Próximos Passos**: Verificação obrigatória junto ao INPI quando publicada.
+
+⚠️ DISCLAIMERS OBRIGATÓRIOS:
+- Esta análise NÃO se baseia em patente publicada
+- Verificação independente junto ao INPI é OBRIGATÓRIA antes de decisões FTO
+- Número BR específico NÃO pode ser previsto (atribuído pelo INPI após entrada)
+- Sistema NÃO acessa dados confidenciais - apenas analisa família PCT pública
+
+Seja técnico, transparente sobre limitações e objetivo. Limite a 3-4 parágrafos.`
+    : 
+      `Você é um especialista em análise de patentes farmacêuticas. Analise a seguinte patente:
 
 NÚMERO: ${patent.patent_number}
 TÍTULO: ${patent.title}
 DEPOSITANTE(S): ${patent.applicants.join(', ')}
 EXPIRAÇÃO: ${patent.expiration_date}
 STATUS: ${patent.patent_status || 'Não informado'}
-TIER DE CONFIANÇA: ${patent.confidence_tier || 'Não classificado'}
 
 ${patent.abstract ? `RESUMO:\n${patent.abstract.substring(0, 500)}...` : ''}
 

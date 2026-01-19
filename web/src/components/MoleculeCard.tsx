@@ -123,11 +123,6 @@ export function MoleculeCard({
                 </div>
               )}
             </div>
-
-            {/* Footer note */}
-            <p className="text-xs text-muted-foreground italic">
-              Dados moleculares, ensaios clínicos, aprovações regulatórias e literatura científica
-            </p>
           </div>
         </div>
       </CardContent>
