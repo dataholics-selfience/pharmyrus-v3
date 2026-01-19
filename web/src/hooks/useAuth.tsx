@@ -35,10 +35,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (firebaseUser) {
         try {
-          // Fetch user data from Firestore
-          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid))
+          // Check if user just signed up
+          const justSignedUp = localStorage.getItem('justSignedUp') === 'true'
           
-          if (userDoc.exists()) {
+          // If just signed up, wait a bit for Firestore to sync
+          if (justSignedUp) {
+            console.log('⏳ New signup detected, waiting for Firestore sync...')
+            await new Promise(resolve => setTimeout(resolve, 2000)) // 2 seconds
+          }
+          
+          // Fetch user data from Firestore with retry logic
+          let userDoc
+          let retries = 0
+          const maxRetries = 3
+          
+          while (retries < maxRetries) {
+            userDoc = await getDoc(doc(db, 'users', firebaseUser.uid))
+            
+            if (userDoc.exists()) {
+              break // Success!
+            }
+            
+            // Document doesn't exist yet, wait and retry
+            console.log(`⏳ User document not found, retry ${retries + 1}/${maxRetries}`)
+            await new Promise(resolve => setTimeout(resolve, 1000))
+            retries++
+          }
+          
+          if (userDoc && userDoc.exists()) {
             const userData = userDoc.data()
             setUser({
               uid: firebaseUser.uid,
@@ -52,9 +76,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               role: userData.role || 'user',
               organizationId: userData.organizationId,
             })
+            
+            // Clear signup flag after successful load
+            if (justSignedUp) {
+              localStorage.removeItem('justSignedUp')
+              console.log('✅ Signup flag cleared')
+            }
+          } else {
+            console.error('❌ User document not found after retries')
+            // Create minimal user object from Firebase Auth
+            setUser({
+              uid: firebaseUser.uid,
+              email: firebaseUser.email!,
+              displayName: firebaseUser.displayName || null,
+              phoneNumber: null,
+              cpf: null,
+              company: null,
+              createdAt: new Date(),
+              lastLogin: new Date(),
+              role: 'user',
+              organizationId: null,
+            })
           }
         } catch (error) {
           console.error('Error fetching user data:', error)
+          // Create minimal user object on error
+          setUser({
+            uid: firebaseUser.uid,
+            email: firebaseUser.email!,
+            displayName: firebaseUser.displayName || null,
+            phoneNumber: null,
+            cpf: null,
+            company: null,
+            createdAt: new Date(),
+            lastLogin: new Date(),
+            role: 'user',
+            organizationId: null,
+          })
         }
       } else {
         setUser(null)

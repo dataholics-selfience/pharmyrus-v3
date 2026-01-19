@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth'
-import { doc, setDoc, collection, addDoc } from 'firebase/firestore'
+import { doc, setDoc, collection, addDoc, getDoc } from 'firebase/firestore'
 import { auth, db } from '@/lib/firebase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -126,10 +126,14 @@ export function SignupPage() {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password)
       const user = userCredential.user
       
+      console.log('✅ Firebase Auth user created:', user.uid)
+      
       // 2. Update display name
       await updateProfile(user, {
         displayName: fullName,
       })
+      
+      console.log('✅ Display name updated')
       
       // 3. Create Firestore user document
       await setDoc(doc(db, 'users', user.uid), {
@@ -143,6 +147,8 @@ export function SignupPage() {
         createdAt: new Date(),
         lastLogin: new Date(),
       })
+      
+      console.log('✅ Firestore user document created')
       
       // 4. Assign FREE plan
       await setDoc(doc(db, 'users', user.uid, 'plan', 'current'), {
@@ -159,16 +165,29 @@ export function SignupPage() {
         startedAt: new Date(),
       })
       
+      console.log('✅ Plan document created')
+      
       // 5. Add new company to database if not in list
       if (!PHARMA_COMPANIES.includes(company)) {
         await addNewCompany(company)
       }
       
-      // 6. Marcar que acabou de fazer signup
+      // 6. Verify document was created successfully
+      const verifyDoc = await getDoc(doc(db, 'users', user.uid))
+      if (!verifyDoc.exists()) {
+        throw new Error('Failed to verify user document creation')
+      }
+      
+      console.log('✅ User document verified')
+      
+      // 7. Mark signup flag for useAuth to handle properly
       localStorage.setItem('justSignedUp', 'true')
       
-      console.log('✅ [SIGNUP] Redirecting to landing')
-      navigate('/')
+      // 8. Small delay to ensure Firestore propagation
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
+      console.log('✅ [SIGNUP] Redirecting to search')
+      navigate('/search') // Go directly to search instead of landing
       
     } catch (err: any) {
       console.error('Signup error:', err)
