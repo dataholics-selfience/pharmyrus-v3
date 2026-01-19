@@ -11,6 +11,9 @@ import { ResultsPage } from '@/pages/Results'
 import { ResultsScientificPage } from '@/pages/ResultsScientific'
 import { DashboardPage } from '@/pages/Dashboard'
 
+// Components
+import { ProtectedRoute } from '@/components/ProtectedRoute'
+
 // Providers
 import { AuthProvider } from '@/hooks/useAuth'
 
@@ -42,16 +45,58 @@ function App() {
       <BrowserRouter>
         <AuthProvider>
           <Routes>
-            {/* Public routes */}
+            {/* Public routes - Landing and Auth */}
             <Route path="/" element={<LandingPage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/cadastro" element={<SignupPage />} />
-            <Route path="/search" element={<SearchPage />} />
-            <Route path="/results" element={<ResultsPage />} />
-            <Route path="/results/scientific" element={<ResultsScientificPage />} />
+            <Route 
+              path="/login" 
+              element={
+                <ProtectedRoute requireAuth={false}>
+                  <LoginPage />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/cadastro" 
+              element={
+                <ProtectedRoute requireAuth={false}>
+                  <SignupPage />
+                </ProtectedRoute>
+              } 
+            />
             
-            {/* Protected routes */}
-            <Route path="/dashboard" element={<DashboardPage />} />
+            {/* Protected routes - Require authentication */}
+            <Route 
+              path="/search" 
+              element={
+                <ProtectedRoute>
+                  <SearchPage />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/results" 
+              element={
+                <ProtectedRoute>
+                  <ResultsPage />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/results/scientific" 
+              element={
+                <ProtectedRoute>
+                  <ResultsScientificPage />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/dashboard" 
+              element={
+                <ProtectedRoute>
+                  <DashboardPage />
+                </ProtectedRoute>
+              } 
+            />
             
             {/* 404 */}
             <Route path="*" element={<Navigate to="/" replace />} />

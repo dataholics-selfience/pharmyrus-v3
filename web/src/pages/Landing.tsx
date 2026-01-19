@@ -10,14 +10,30 @@ import { useAuth } from '@/hooks/useAuth'
 
 export function LandingPage() {
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, signOut } = useAuth()
   
   const [molecule, setMolecule] = useState('')
   const [brand, setBrand] = useState('')
   const [countries, setCountries] = useState<string[]>(['BR'])
 
+  const handleSignOut = async () => {
+    try {
+      await signOut()
+      navigate('/login')
+    } catch (error) {
+      console.error('Error signing out:', error)
+    }
+  }
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Check if user is authenticated
+    if (!user) {
+      console.log('❌ User not authenticated, redirecting to login')
+      navigate('/login', { state: { from: '/search', searchData: { molecule: molecule.trim(), brand: brand.trim(), countries } } })
+      return
+    }
     
     if (!molecule.trim()) {
       alert('Digite o nome da molécula!')
@@ -38,12 +54,48 @@ export function LandingPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <header className="border-b border-border">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-end gap-4">
-          {user && (
-            <span className="text-sm text-muted-foreground">
-              Olá, <span className="font-medium text-foreground">{user.displayName || user.email}</span>
-            </span>
-          )}
+        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <img 
+              src="/logo.png" 
+              alt="Pharmyrus" 
+              className="h-8 w-auto"
+            />
+            <span className="font-semibold text-lg">Pharmyrus</span>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            {user ? (
+              <>
+                <span className="text-sm text-muted-foreground">
+                  Olá, <span className="font-medium text-foreground">{user.displayName || user.email}</span>
+                </span>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleSignOut}
+                >
+                  Sair
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => navigate('/login')}
+                >
+                  Entrar
+                </Button>
+                <Button 
+                  size="sm"
+                  onClick={() => navigate('/cadastro')}
+                >
+                  Criar Conta
+                </Button>
+              </>
+            )}
+          </div>
         </div>
       </header>
 
