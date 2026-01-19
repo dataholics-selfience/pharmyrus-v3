@@ -78,21 +78,9 @@ export function PatentAIAnalysis({
   return (
     <div className="space-y-4">
       {/* Header with analyze button */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-primary" />
-          <h3 className="text-lg font-semibold">Análise AI desta Patente</h3>
-          <Badge variant="secondary" className="text-xs font-normal">
-            <Zap className="h-3 w-3 mr-1" />
-            Groq LLaMA 3.3
-          </Badge>
-        </div>
-        
-        {tokensUsed > 0 && (
-          <span className="text-xs text-muted-foreground">
-            {tokensUsed} tokens
-          </span>
-        )}
+      <div className="flex items-center gap-2">
+        <Sparkles className="h-5 w-5 text-primary" />
+        <h3 className="text-lg font-semibold">Análise AI desta Patente</h3>
       </div>
 
       {/* Not yet loaded */}
@@ -183,17 +171,6 @@ export function PatentAIAnalysis({
                 Ler menos
                 <ChevronUp className="h-3 w-3" />
               </button>
-            )}
-          </div>
-
-          {/* Footer */}
-          <div className="flex items-center gap-2 pt-4 border-t border-primary/10 text-xs text-muted-foreground">
-            <FileText className="h-3 w-3" />
-            <span>Análise gerada por IA - verifique com especialistas</span>
-            {fromCache && (
-              <Badge variant="outline" className="text-xs">
-                Cache
-              </Badge>
             )}
           </div>
         </div>

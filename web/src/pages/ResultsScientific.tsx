@@ -182,20 +182,100 @@ export function ResultsScientificPage() {
 
   // Process patents: merge variants and add predictions
   const processedPatents = useMemo(() => {
-    let allPatents = [...patents]
+    console.log('=== PATENT PROCESSING START ===')
+    console.log('Input patents:', patents.length)
     
-    // Add predicted patents from inferred_events
+    // STEP 1: Separate patents by type
+    const regularPatents: Patent[] = []
+    const invalidSuffixedPatents: Patent[] = []
+    
+    patents.forEach(patent => {
+      const hasSuffix = /[ABC][12]$/i.test(patent.patent_number)
+      
+      if (hasSuffix) {
+        // Check if has valid data
+        const hasValidDate = !!(
+          (patent.filing_date && 
+           patent.filing_date !== 'N/A' && 
+           patent.filing_date !== 'Invalid Date' &&
+           patent.filing_date !== '') ||
+          (patent.publication_date && 
+           patent.publication_date !== 'N/A' && 
+           patent.publication_date !== 'Invalid Date' &&
+           patent.publication_date !== '')
+        )
+        const hasContent = !!(patent.title || patent.applicants?.length > 0)
+        
+        if (hasValidDate && hasContent) {
+          regularPatents.push(patent)
+        } else {
+          console.log('❌ FILTERING OUT invalid suffixed patent:', patent.patent_number, {
+            source: patent.source,
+            filing_date: patent.filing_date,
+            has_title: !!patent.title
+          })
+          invalidSuffixedPatents.push(patent)
+        }
+      } else {
+        regularPatents.push(patent)
+      }
+    })
+    
+    console.log('Regular patents (kept):', regularPatents.length)
+    console.log('Invalid suffixed (removed):', invalidSuffixedPatents.length)
+    
+    // STEP 2: Add predictions
     const inferredEvents = result.predictive_intelligence?.inferred_events || []
+    console.log('Inferred events found:', inferredEvents.length)
+    
     const predictedPatents = inferredEvents
-      .map(inferredEventToPatent)
+      .map(event => {
+        if (!event) return null
+        
+        const sourcePatent = event.source_patent || {}
+        const brPrediction = event.brazilian_prediction || {}
+        const confidence = event.enhanced_v30_4 || event.confidence_analysis || {}
+        
+        return {
+          patent_number: brPrediction.br_number || event.event_id || sourcePatent.wo_number || 'PENDING',
+          country: 'BR',
+          source: 'Predictive Intelligence',
+          title: sourcePatent.wo_title || 'Título não disponível',
+          applicants: sourcePatent.applicant ? [sourcePatent.applicant] : [],
+          inventors: [],
+          ipc_codes: sourcePatent.ipc_classification || [],
+          filing_date: sourcePatent.priority_date || sourcePatent.wo_filing_date || '',
+          publication_date: sourcePatent.wo_publication_date || '',
+          grant_date: '',
+          expiration_date: brPrediction.expected_expiration || '',
+          years_until_expiration: undefined,
+          patent_status: brPrediction.status || event.event_type || 'PREDICTED',
+          wo_number: sourcePatent.wo_number || '',
+          pct_number: '',
+          link_national: '',
+          abstract: sourcePatent.wo_abstract || '',
+          confidence_tier: confidence.tier_classification || confidence.confidence_tier || 'PREDICTED',
+          confidence_score: confidence.confidence_score || confidence.overall_confidence || 0,
+          _isPrediction: true,
+          _predictionData: {
+            eventId: event.event_id,
+            eventType: event.event_type,
+            filingWindow: brPrediction.filing_window,
+            warnings: event.warnings || [],
+            verification: event.validation || {}
+          }
+        } as Patent
+      })
       .filter((p): p is Patent => p !== null)
     
-    allPatents = [...allPatents, ...predictedPatents]
+    console.log('Predicted patents created:', predictedPatents.length)
     
-    // Merge patent variants (A2, B1, etc.)
-    const merged = mergePatentVariants(allPatents)
+    // STEP 3: Merge all
+    const allPatents = [...regularPatents, ...predictedPatents]
+    console.log('Total patents after merge:', allPatents.length)
+    console.log('=== PATENT PROCESSING END ===')
     
-    return merged
+    return allPatents
   }, [patents, result.predictive_intelligence])
 
   // Process timeline data for Patent Cliff visualization
@@ -211,20 +291,29 @@ export function ResultsScientificPage() {
       yearMap.set(expYear, (yearMap.get(expYear) || 0) + 1)
     })
     
-    // Create continuous timeline from now to last expiration
-    const lastYear = new Date(cliff.last_expiration).getFullYear()
+    // Get all years with data
+    const yearsWithData = Array.from(yearMap.keys()).sort((a, b) => a - b)
+    
+    if (yearsWithData.length === 0) return []
+    
+    const firstYear = Math.min(currentYear, yearsWithData[0] - 1)
+    const lastYear = yearsWithData[yearsWithData.length - 1] + 1
+    
     const data = []
     
-    for (let year = currentYear; year <= lastYear; year++) {
+    for (let year = firstYear; year <= lastYear; year++) {
       const count = yearMap.get(year) || 0
       const yearsFromNow = year - currentYear
       
-      data.push({
-        year,
-        expirations: count,
-        yearsFromNow,
-        zone: yearsFromNow < 2 ? 'critical' : yearsFromNow < 5 ? 'warning' : 'safe'
-      })
+      // Only include years with data OR one year buffer before/after
+      if (count > 0 || year === firstYear || year === lastYear) {
+        data.push({
+          year,
+          expirations: count,
+          yearsFromNow,
+          zone: yearsFromNow < 2 ? 'critical' : yearsFromNow < 5 ? 'warning' : 'safe'
+        })
+      }
     }
     
     return data

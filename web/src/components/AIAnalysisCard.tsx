@@ -91,19 +91,9 @@ export function AIAnalysisCard({
           <CardTitle className="flex items-center gap-2 text-lg">
             <Sparkles className="h-5 w-5 text-primary" />
             Análise AI
-            <Badge variant="secondary" className="text-xs font-normal">
-              <Zap className="h-3 w-3 mr-1" />
-              Groq LLaMA 3.3
-            </Badge>
           </CardTitle>
           
           <div className="flex items-center gap-2">
-            {tokensUsed > 0 && (
-              <span className="text-xs text-muted-foreground">
-                {tokensUsed} tokens
-              </span>
-            )}
-            
             <Button
               variant="ghost"
               size="sm"
@@ -209,17 +199,6 @@ export function AIAnalysisCard({
                     Ler menos
                     <ChevronUp className="h-3 w-3" />
                   </button>
-                )}
-              </div>
-
-              {/* Footer */}
-              <div className="flex items-center gap-2 pt-4 border-t text-xs text-muted-foreground">
-                <FileText className="h-3 w-3" />
-                <span>Análise gerada por IA - verifique com especialistas</span>
-                {fromCache && (
-                  <Badge variant="outline" className="text-xs">
-                    Cache
-                  </Badge>
                 )}
               </div>
             </div>
