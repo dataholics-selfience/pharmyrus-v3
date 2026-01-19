@@ -356,13 +356,13 @@ export function ResultsScientificPage() {
 
   const handleExport = async () => {
     try {
-      const result = await exportToExcel(patents, metadata.molecule_name)
+      const result = await exportToExcel(processedPatents, metadata.molecule_name)
       if (result.success) {
         console.log('✅ Excel exportado:', result.filename)
       } else {
         // Fallback to CSV
         console.warn('⚠️ Excel falhou, tentando CSV...')
-        const csvResult = exportToCSV(patents, metadata.molecule_name)
+        const csvResult = exportToCSV(processedPatents, metadata.molecule_name)
         if (!csvResult.success) {
           alert('Erro ao exportar: ' + result.error)
         }
@@ -370,7 +370,7 @@ export function ResultsScientificPage() {
     } catch (error) {
       console.error('❌ Erro ao exportar:', error)
       // Fallback to CSV
-      const csvResult = exportToCSV(patents, metadata.molecule_name)
+      const csvResult = exportToCSV(processedPatents, metadata.molecule_name)
       if (!csvResult.success) {
         alert('Erro ao exportar dados')
       }
@@ -657,7 +657,7 @@ export function ResultsScientificPage() {
                   Patentes Identificadas ({processedPatents.length})
                 </CardTitle>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Inclui {patents.length} patentes confirmadas + {processedPatents.length - patents.length} predições | Clique para detalhes
+                  Inclui {processedPatents.filter(p => !(p as any)._isPrediction).length} patentes confirmadas + {processedPatents.filter(p => (p as any)._isPrediction).length} predições | Clique para detalhes
                 </p>
               </div>
               
@@ -684,7 +684,7 @@ export function ResultsScientificPage() {
           </CardHeader>
           <CardContent>
             <PatentListVirtual 
-              patents={showAllPatents ? patents : processedPatents.slice(0, 10)}
+              patents={showAllPatents ? processedPatents : processedPatents.slice(0, 10)}
               onPatentClick={setSelectedPatent}
             />
             
