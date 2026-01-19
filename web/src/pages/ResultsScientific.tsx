@@ -117,10 +117,44 @@ export function ResultsScientificPage() {
     )
   }
 
-  const metadata = result.metadata || {}
-  const discovery = result.patent_discovery || {}
-  const summary = discovery.summary || {}
-  const cliff = discovery.patent_cliff || {}
+  const metadata = result.metadata || {
+    search_id: '',
+    molecule_name: '',
+    brand_name: '',
+    search_date: '',
+    target_countries: [],
+    elapsed_seconds: 0,
+    version: ''
+  }
+  const discovery = result.patent_discovery || {
+    summary: {
+      total_patents: 0,
+      total_wo_patents: 0,
+      by_country: {},
+      by_source: {}
+    },
+    patent_cliff: {
+      first_expiration: '',
+      last_expiration: '',
+      years_until_cliff: 0,
+      status: '',
+      all_expirations: []
+    },
+    all_patents: []
+  }
+  const summary = discovery.summary || {
+    total_patents: 0,
+    total_wo_patents: 0,
+    by_country: {},
+    by_source: {}
+  }
+  const cliff = discovery.patent_cliff || {
+    first_expiration: '',
+    last_expiration: '',
+    years_until_cliff: 0,
+    status: '',
+    all_expirations: []
+  }
   const patents = discovery.all_patents || []
   const predictive = result.predictive_intelligence?.summary?.by_confidence_tier || {}
   const molecularData = result.research_and_development?.molecular_data
