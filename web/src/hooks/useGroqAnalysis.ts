@@ -53,9 +53,9 @@ export function useGroqAnalysis() {
     setLoading(true)
     setError(null)
 
-    try {
-      // Check cache first if jobId provided
-      if (jobId) {
+    // Check cache first if jobId provided
+    if (jobId) {
+      try {
         console.log(`[Groq] Checking cache for portfolio ${jobId}...`)
         const cached = await getPortfolioAnalysisCache(jobId)
         
@@ -71,7 +71,11 @@ export function useGroqAnalysis() {
         }
         
         console.log(`[Groq] No cache found, calling API...`)
+      } catch (cacheError) {
+        console.error('[Groq] Cache check error:', cacheError)
+        // Continue to API call if cache fails
       }
+    }
 
     const prompt = `Você é um especialista em propriedade intelectual farmacêutica. Analise o seguinte portfólio de patentes:
 
@@ -176,9 +180,9 @@ Seja objetivo, técnico e baseado nos dados fornecidos. Use linguagem profission
     setLoading(true)
     setError(null)
 
-    try {
-      // Check cache first if jobId provided
-      if (jobId) {
+    // Check cache first if jobId provided
+    if (jobId) {
+      try {
         console.log(`[Groq] Checking cache for patent ${patent.patent_number}...`)
         const cached = await getPatentAnalysisCache(jobId, patent.patent_number)
         
@@ -194,7 +198,11 @@ Seja objetivo, técnico e baseado nos dados fornecidos. Use linguagem profission
         }
         
         console.log(`[Groq] No cache found, calling API...`)
+      } catch (cacheError) {
+        console.error('[Groq] Cache check error:', cacheError)
+        // Continue to API call if cache fails
       }
+    }
 
     const prompt = `Você é um especialista em análise de patentes farmacêuticas. Analise a seguinte patente:
 
