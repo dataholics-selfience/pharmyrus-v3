@@ -24,10 +24,15 @@ export interface SearchJob {
 }
 
 export interface SearchResult {
-  job_id: string
+  job_id?: string
   metadata: {
+    search_id?: string
     molecule_name: string
+    brand_name?: string
+    search_date?: string
+    target_countries?: string[]
     elapsed_seconds: number
+    version?: string
   }
   patent_discovery: {
     summary: {
@@ -37,11 +42,34 @@ export interface SearchResult {
       by_source: Record<string, number>
     }
     patent_cliff: {
-      expired: number
-      expiring_within_2_years: number
-      expiring_within_5_years: number
+      first_expiration?: string
+      last_expiration?: string
+      years_until_cliff?: number
+      status?: string
+      all_expirations?: any[]
+      expired?: number
+      expiring_within_2_years?: number
+      expiring_within_5_years?: number
     }
     all_patents: any[]
+  }
+  predictive_intelligence?: {
+    summary: {
+      by_confidence_tier: {
+        PUBLISHED?: number
+        FOUND?: number
+        INFERRED?: number
+        EXPECTED?: number
+        PREDICTED?: number
+        SPECULATIVE?: number
+      }
+    }
+  }
+  research_and_development?: {
+    molecular_data?: any
+    clinical_trials_data?: any
+    fda_data?: any
+    pubmed_data?: any
   }
 }
 

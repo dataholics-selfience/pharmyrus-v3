@@ -5,18 +5,22 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { 
   ArrowLeft, FileDown, Search, Clock, AlertTriangle,
-  Database, TrendingDown, Lightbulb, ChevronDown, ChevronUp
+  Database, TrendingDown, Lightbulb, ChevronDown, ChevronUp,
+  PieChart as PieChartIcon, Microscope
 } from 'lucide-react'
 import { 
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, 
   Tooltip, Legend, ResponsiveContainer, Area, AreaChart, ReferenceLine,
-  Cell
+  Cell, PieChart, Pie
 } from 'recharts'
 import { PatentModal } from '@/components/PatentModal'
 import { PatentListVirtual } from '@/components/PatentListVirtual'
 import { MoleculeViewer } from '@/components/MoleculeViewer'
 import { RDSection } from '@/components/RDSection'
+import { TimelineModal } from '@/components/TimelineModal'
+import { ConfidenceModal } from '@/components/ConfidenceModal'
 import { useExportExcel } from '@/hooks/useExportExcel'
+import { AIAnalysisCard } from '@/components/AIAnalysisCard'
 
 interface Patent {
   patent_number: string
@@ -92,7 +96,11 @@ interface ResultData {
       molecular_weight?: number
       iupac_name?: string
       cas_number?: string
+      pubchem_cid?: number | string
     }
+    clinical_trials_data?: any
+    fda_data?: any
+    pubmed_data?: any
   }
 }
 
@@ -103,6 +111,9 @@ export function ResultsScientificPage() {
   
   const [selectedPatent, setSelectedPatent] = useState<Patent | null>(null)
   const [showAllPatents, setShowAllPatents] = useState(false)
+  const [timelineModalOpen, setTimelineModalOpen] = useState(false)
+  const [selectedYear, setSelectedYear] = useState<number | null>(null)
+  const [confidenceModalOpen, setConfidenceModalOpen] = useState(false)
 
   if (!result) {
     return (
@@ -208,16 +219,46 @@ export function ResultsScientificPage() {
 
   const totalConfidencePatents = confidenceData.reduce((sum, tier) => sum + tier.count, 0)
 
-  const { exportToExcel } = useExportExcel()
+  // Get patents for a specific year
+  const getPatentsByYear = (year: number) => {
+    return patents.filter(p => {
+      if (!p.expiration_date) return false
+      const expYear = new Date(p.expiration_date).getFullYear()
+      return expYear === year
+    })
+  }
 
-  const handleExport = () => {
-    const result = exportToExcel(patents, metadata.molecule_name)
-    if (result.success) {
-      // Toast de sucesso (opcional)
-      console.log('✅ Excel exportado:', result.filename)
-    } else {
-      console.error('❌ Erro ao exportar:', result.error)
-      alert('Erro ao exportar Excel: ' + result.error)
+  // Handle timeline click
+  const handleTimelineClick = (data: any) => {
+    if (data && data.activePayload && data.activePayload.length > 0) {
+      const clickedYear = data.activePayload[0].payload.year
+      setSelectedYear(clickedYear)
+      setTimelineModalOpen(true)
+    }
+  }
+
+  const { exportToExcel, exportToCSV } = useExportExcel()
+
+  const handleExport = async () => {
+    try {
+      const result = await exportToExcel(patents, metadata.molecule_name)
+      if (result.success) {
+        console.log('✅ Excel exportado:', result.filename)
+      } else {
+        // Fallback to CSV
+        console.warn('⚠️ Excel falhou, tentando CSV...')
+        const csvResult = exportToCSV(patents, metadata.molecule_name)
+        if (!csvResult.success) {
+          alert('Erro ao exportar: ' + result.error)
+        }
+      }
+    } catch (error) {
+      console.error('❌ Erro ao exportar:', error)
+      // Fallback to CSV
+      const csvResult = exportToCSV(patents, metadata.molecule_name)
+      if (!csvResult.success) {
+        alert('Erro ao exportar dados')
+      }
     }
   }
 
@@ -232,11 +273,15 @@ export function ResultsScientificPage() {
             </Link>
             <div className="h-6 w-px bg-border" />
             <div className="flex items-center gap-3">
-              {molecularData?.smiles && (
-                <div className="w-16 h-16 -my-2">
-                  <MoleculeViewer smiles={molecularData.smiles} width={64} height={64} />
-                </div>
-              )}
+              <div className="w-16 h-16 -my-2">
+                <MoleculeViewer 
+                  smiles={molecularData?.smiles} 
+                  moleculeName={metadata.molecule_name}
+                  pubchemCid={molecularData?.pubchem_cid}
+                  width={64} 
+                  height={64} 
+                />
+              </div>
               <div>
                 <h1 className="font-semibold text-lg">{metadata.molecule_name}</h1>
                 {metadata.brand_name && (
@@ -247,6 +292,12 @@ export function ResultsScientificPage() {
           </div>
           
           <div className="flex items-center gap-2">
+            <a href="#rd-section">
+              <Button variant="ghost" size="sm" className="text-primary">
+                <Microscope className="h-4 w-4 mr-2" />
+                P&D
+              </Button>
+            </a>
             <Button variant="outline" size="sm" onClick={handleExport}>
               <FileDown className="h-4 w-4 mr-2" />
               Exportar Excel
@@ -316,22 +367,76 @@ export function ResultsScientificPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Tempo de Análise
+          <Card 
+            className="cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => setConfidenceModalOpen(true)}
+          >
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <PieChartIcon className="h-4 w-4" />
+                Nível de Confiança
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">
-                {Math.round(metadata.elapsed_seconds / 60)} min
+            <CardContent className="pt-0">
+              <div className="flex items-center gap-3">
+                {/* Mini Pie Chart */}
+                <div className="h-16 w-16 flex-shrink-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={confidenceData}
+                        dataKey="count"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={15}
+                        outerRadius={30}
+                        paddingAngle={2}
+                      >
+                        {confidenceData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                {/* Legend */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap gap-1">
+                    {confidenceData.slice(0, 3).map(tier => (
+                      <Badge 
+                        key={tier.name}
+                        variant="outline" 
+                        className="text-[10px] px-1.5 py-0"
+                        style={{ borderColor: tier.color, color: tier.color }}
+                      >
+                        {tier.name.slice(0, 3)}: {tier.count}
+                      </Badge>
+                    ))}
+                    {confidenceData.length > 3 && (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                        +{confidenceData.length - 3}
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Clique para detalhes
+                  </p>
+                </div>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {metadata.version}
-              </p>
             </CardContent>
           </Card>
         </div>
+
+        {/* AI Analysis Card - Phase 7 */}
+        <AIAnalysisCard
+          moleculeName={metadata.molecule_name}
+          totalPatents={summary.total_patents}
+          cliffStatus={cliff.status || 'Unknown'}
+          firstExpiration={cliff.first_expiration || 'N/A'}
+          countries={metadata.target_countries || ['BR']}
+          sources={Object.keys(summary.by_source || {}).filter(s => summary.by_source[s] > 0)}
+        />
 
         {/* Patent Cliff Timeline */}
         <Card>
@@ -341,13 +446,13 @@ export function ResultsScientificPage() {
               Patent Cliff Timeline
             </CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
-              Visualização temporal das expirações de patentes para análise de FTO
+              Clique em um ano para ver as patentes que expiram nessa data
             </p>
           </CardHeader>
           <CardContent>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={timelineData}>
+                <AreaChart data={timelineData} onClick={handleTimelineClick} style={{ cursor: 'pointer' }}>
                   <defs>
                     <linearGradient id="colorCritical" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#EF4444" stopOpacity={0.3}/>
@@ -379,7 +484,7 @@ export function ResultsScientificPage() {
                       borderRadius: '6px',
                       fontSize: '12px'
                     }}
-                    formatter={(value: number) => [`${value} patente(s)`, 'Expirações']}
+                    formatter={(value: number) => [`${value} patente(s) - Clique para ver`, 'Expirações']}
                     labelFormatter={(year) => `Ano ${year}`}
                   />
                   <ReferenceLine x={new Date().getFullYear()} stroke="#6366F1" strokeDasharray="3 3" label="Hoje" />
@@ -389,6 +494,7 @@ export function ResultsScientificPage() {
                     stroke="#6366F1" 
                     strokeWidth={2}
                     fill="url(#colorSafe)"
+                    activeDot={{ r: 8, stroke: '#6366F1', strokeWidth: 2, fill: 'white', cursor: 'pointer' }}
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -412,95 +518,27 @@ export function ResultsScientificPage() {
           </CardContent>
         </Card>
 
-        {/* Predictive Intelligence - Confidence Distribution */}
-        {totalConfidencePatents > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Lightbulb className="h-5 w-5" />
-                Distribuição por Nível de Confiança
-              </CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
-                Classificação de certeza dos dados de patentes segundo metodologia Pharmyrus v30.4
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              
-              {/* Tier Cards Grid */}
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                {confidenceData.map((tier) => (
-                  <Card 
-                    key={tier.name} 
-                    className="border-2"
-                    style={{ borderColor: tier.color + '40', backgroundColor: tier.color + '08' }}
-                  >
-                    <CardContent className="pt-4 pb-3 text-center">
-                      <div className="text-2xl font-bold" style={{ color: tier.color }}>
-                        {tier.count}
-                      </div>
-                      <div className="text-xs font-semibold mt-1">{tier.name}</div>
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        {tier.confidence}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-
-              {/* Bar Chart */}
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={confidenceData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis 
-                      dataKey="name" 
-                      tick={{ fontSize: 11 }}
-                      angle={-45}
-                      textAnchor="end"
-                      height={80}
-                    />
-                    <YAxis tick={{ fontSize: 12 }} />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: 'white', 
-                        border: '1px solid #e5e7eb',
-                        borderRadius: '6px',
-                        fontSize: '12px'
-                      }}
-                    />
-                    <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                      {confidenceData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-
-              {/* Disclaimer */}
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                <div className="flex gap-3">
-                  <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                  <div className="text-sm">
-                    <p className="font-semibold text-amber-900">Aviso Legal Importante</p>
-                    <p className="text-amber-800 mt-1">
-                      Dados marcados como <strong>INFERRED</strong>, <strong>EXPECTED</strong>, <strong>PREDICTED</strong> ou <strong>SPECULATIVE</strong> 
-                      representam previsões analíticas. Verificação independente junto ao INPI é obrigatória antes de uso em análises de FTO ou decisões estratégicas.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
         {/* R&D Section - Phase 4 */}
-        <RDSection 
-          molecularData={result.research_and_development?.molecular_data}
-          clinicalTrials={result.research_and_development?.clinical_trials_data}
-          fdaData={result.research_and_development?.fda_data}
-          pubmedData={result.research_and_development?.pubmed_data}
-        />
+        <div id="rd-section" className="scroll-mt-24">
+          <div className="bg-gradient-to-r from-primary/10 to-transparent p-4 rounded-lg mb-6">
+            <div className="flex items-center gap-3">
+              <Microscope className="h-6 w-6 text-primary" />
+              <div>
+                <h2 className="text-xl font-bold">Pesquisa & Desenvolvimento</h2>
+                <p className="text-sm text-muted-foreground">
+                  Dados moleculares, ensaios clínicos, aprovações regulatórias e literatura científica
+                </p>
+              </div>
+            </div>
+          </div>
+          <RDSection 
+            molecularData={result.research_and_development?.molecular_data}
+            clinicalTrials={result.research_and_development?.clinical_trials_data}
+            fdaData={result.research_and_development?.fda_data}
+            pubmedData={result.research_and_development?.pubmed_data}
+            moleculeName={metadata.molecule_name}
+          />
+        </div>
 
         {/* Patents List */}
         <Card>
@@ -572,6 +610,23 @@ export function ResultsScientificPage() {
         patent={selectedPatent}
         open={!!selectedPatent}
         onOpenChange={(open) => !open && setSelectedPatent(null)}
+      />
+
+      {/* Timeline Modal - Patents by Year */}
+      <TimelineModal
+        open={timelineModalOpen}
+        onOpenChange={setTimelineModalOpen}
+        year={selectedYear || new Date().getFullYear()}
+        patents={selectedYear ? getPatentsByYear(selectedYear) : []}
+        onPatentClick={(patent) => setSelectedPatent(patent as Patent)}
+      />
+
+      {/* Confidence Distribution Modal */}
+      <ConfidenceModal
+        open={confidenceModalOpen}
+        onOpenChange={setConfidenceModalOpen}
+        data={confidenceData}
+        totalPatents={totalConfidencePatents}
       />
     </div>
   )

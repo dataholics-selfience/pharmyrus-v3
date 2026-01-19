@@ -6,6 +6,7 @@ import { Progress } from '@/components/ui/progress'
 import { AlertCircle, ArrowLeft, Loader2 } from 'lucide-react'
 import { useSearch } from '@/hooks/useSearch'
 import { useAuth } from '@/hooks/useAuth'
+import { useSearchHistory } from '@/hooks/useSearchHistory'
 
 /**
  * Search Page - Railway API Integration
@@ -22,6 +23,7 @@ export function SearchPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { executeSearch, loading, progress, currentStep, error } = useSearch()
+  const { saveToHistory } = useSearchHistory()
   
   // Get search params from location.state (vem do Login/Signup)
   const molecule = location.state?.molecule
@@ -41,6 +43,9 @@ export function SearchPage() {
       try {
         const result = await executeSearch({ molecule, brand, countries })
         
+        // Save to history (Phase 6)
+        await saveToHistory(result)
+        
         // Redirect to scientific results page
         navigate('/results/scientific', { state: { result } })
       } catch (err) {
@@ -49,7 +54,7 @@ export function SearchPage() {
     }
 
     startSearchAsync()
-  }, [molecule, brand, countries, user, navigate, executeSearch])
+  }, [molecule, brand, countries, user, navigate, executeSearch, saveToHistory])
 
   return (
     <div className="min-h-screen bg-background flex flex-col">

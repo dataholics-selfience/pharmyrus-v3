@@ -1,5 +1,3 @@
-import * as XLSX from 'xlsx'
-
 interface Patent {
   patent_number: string
   country?: string
@@ -23,8 +21,11 @@ interface Patent {
 }
 
 export function useExportExcel() {
-  const exportToExcel = (patents: Patent[], moleculeName: string) => {
+  const exportToExcel = async (patents: Patent[], moleculeName: string) => {
     try {
+      // Dynamically import xlsx
+      const XLSX = await import('xlsx')
+      
       // Map patents to Excel-friendly format
       const data = patents.map(p => ({
         'Patent Number': p.patent_number || '',
@@ -53,39 +54,27 @@ export function useExportExcel() {
 
       // Set column widths
       const colWidths = [
-        { wch: 15 }, // Patent Number
-        { wch: 15 }, // WO Number
-        { wch: 15 }, // PCT Number
+        { wch: 18 }, // Patent Number
+        { wch: 18 }, // WO Number
+        { wch: 18 }, // PCT Number
         { wch: 8 },  // Country
-        { wch: 12 }, // Source
-        { wch: 10 }, // Status
-        { wch: 12 }, // Confidence Tier
-        { wch: 8 },  // Confidence Score
+        { wch: 15 }, // Source
+        { wch: 12 }, // Status
+        { wch: 14 }, // Confidence Tier
+        { wch: 10 }, // Confidence Score
         { wch: 60 }, // Title
-        { wch: 30 }, // Applicants
+        { wch: 35 }, // Applicants
         { wch: 30 }, // Inventors
-        { wch: 20 }, // IPC Codes
+        { wch: 25 }, // IPC Codes
         { wch: 12 }, // Filing Date
-        { wch: 12 }, // Publication Date
+        { wch: 14 }, // Publication Date
         { wch: 12 }, // Grant Date
-        { wch: 12 }, // Expiration Date
-        { wch: 10 }, // Years Until Expiration
-        { wch: 40 }, // Link
-        { wch: 80 }  // Abstract
+        { wch: 14 }, // Expiration Date
+        { wch: 12 }, // Years Until Expiration
+        { wch: 50 }, // Link
+        { wch: 100 } // Abstract
       ]
       ws['!cols'] = colWidths
-
-      // Apply header styling
-      const range = XLSX.utils.decode_range(ws['!ref'] || 'A1')
-      for (let C = range.s.c; C <= range.e.c; ++C) {
-        const address = XLSX.utils.encode_col(C) + '1'
-        if (!ws[address]) continue
-        ws[address].s = {
-          font: { bold: true },
-          fill: { fgColor: { rgb: "4F81BD" } },
-          alignment: { horizontal: "center", vertical: "center" }
-        }
-      }
 
       // Create workbook
       const wb = XLSX.utils.book_new()
@@ -95,12 +84,13 @@ export function useExportExcel() {
       const timestamp = new Date().toISOString().split('T')[0]
       const filename = `${moleculeName.replace(/\s+/g, '_')}_patents_${timestamp}.xlsx`
 
-      // Download file
-      XLSX.writeFile(wb, filename)
+      // Download file using writeFileXLSX for better browser compatibility
+      XLSX.writeFile(wb, filename, { bookType: 'xlsx' })
 
+      console.log('✅ Excel exportado com sucesso:', filename)
       return { success: true, filename }
     } catch (error) {
-      console.error('Error exporting to Excel:', error)
+      console.error('❌ Error exporting to Excel:', error)
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error' 
@@ -108,5 +98,64 @@ export function useExportExcel() {
     }
   }
 
-  return { exportToExcel }
+  // Alternative: Export as CSV (fallback)
+  const exportToCSV = (patents: Patent[], moleculeName: string) => {
+    try {
+      const headers = [
+        'Patent Number', 'WO Number', 'PCT Number', 'Country', 'Source', 
+        'Status', 'Confidence Tier', 'Confidence Score', 'Title', 
+        'Applicants', 'Inventors', 'IPC Codes', 'Filing Date', 
+        'Publication Date', 'Grant Date', 'Expiration Date', 
+        'Years Until Expiration', 'Link', 'Abstract'
+      ]
+
+      const rows = patents.map(p => [
+        p.patent_number || '',
+        p.wo_number || '',
+        p.pct_number || '',
+        p.country || '',
+        p.source || '',
+        p.patent_status || '',
+        p.confidence_tier || '',
+        p.confidence_score?.toFixed(2) || '',
+        `"${(p.title || '').replace(/"/g, '""')}"`,
+        `"${(Array.isArray(p.applicants) ? p.applicants.join('; ') : '').replace(/"/g, '""')}"`,
+        `"${(Array.isArray(p.inventors) ? p.inventors.join('; ') : '').replace(/"/g, '""')}"`,
+        `"${(Array.isArray(p.ipc_codes) ? p.ipc_codes.join('; ') : '').replace(/"/g, '""')}"`,
+        p.filing_date || '',
+        p.publication_date || '',
+        p.grant_date || '',
+        p.expiration_date || '',
+        p.years_until_expiration?.toFixed(2) || '',
+        p.link_national || '',
+        `"${(p.abstract || '').replace(/"/g, '""')}"`
+      ])
+
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.join(','))
+      ].join('\n')
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const link = document.createElement('a')
+      const timestamp = new Date().toISOString().split('T')[0]
+      const filename = `${moleculeName.replace(/\s+/g, '_')}_patents_${timestamp}.csv`
+      
+      link.href = URL.createObjectURL(blob)
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      return { success: true, filename }
+    } catch (error) {
+      console.error('Error exporting to CSV:', error)
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      }
+    }
+  }
+
+  return { exportToExcel, exportToCSV }
 }

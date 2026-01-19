@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { CountryMultiSelect } from '@/components/CountryMultiSelect'
+import { SearchHistoryGrid } from '@/components/SearchHistoryGrid'
 import { useAuth } from '@/hooks/useAuth'
 
 export function LandingPage() {
@@ -104,6 +105,18 @@ export function LandingPage() {
               </form>
             </CardContent>
           </Card>
+
+          {/* Search History Grid - Phase 6 */}
+          {user && (
+            <div className="mt-8">
+              <SearchHistoryGrid 
+                maxItems={6}
+                onReload={(result) => {
+                  navigate('/results/scientific', { state: { result } })
+                }}
+              />
+            </div>
+          )}
         </div>
       </main>
     </div>

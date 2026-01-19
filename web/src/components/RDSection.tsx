@@ -94,22 +94,22 @@ export function RDSection({
   molecularData, 
   clinicalTrials, 
   fdaData,
-  pubmedData 
-}: RDSectionProps) {
+  pubmedData,
+  moleculeName
+}: RDSectionProps & { moleculeName?: string }) {
   
-  if (!molecularData && !clinicalTrials && !fdaData && !pubmedData) {
+  // Always show the section - even without data, we'll show the 3D molecule
+  const showMolecular = molecularData || moleculeName
+  
+  if (!showMolecular && !clinicalTrials && !fdaData && !pubmedData) {
     return null
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Microscope className="h-6 w-6 text-primary" />
-        <h2 className="text-2xl font-bold">Pesquisa & Desenvolvimento</h2>
-      </div>
 
-      {/* Molecular Data */}
-      {molecularData && (
+      {/* Molecular Data - Always show if we have moleculeName */}
+      {showMolecular && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
@@ -121,25 +121,25 @@ export function RDSection({
             
             {/* 3D Viewer + Basic Info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* 3D Molecule Viewer */}
-              {molecularData.smiles && (
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-muted-foreground">Estrutura 3D</p>
-                  <div className="border rounded-lg overflow-hidden bg-muted/30">
-                    <MoleculeViewer 
-                      smiles={molecularData.smiles} 
-                      width={350} 
-                      height={300}
-                      rotating={true}
-                    />
-                  </div>
-                  {molecularData.smiles && (
-                    <p className="text-xs text-muted-foreground font-mono break-all mt-2">
-                      SMILES: {molecularData.smiles}
-                    </p>
-                  )}
+              {/* 3D Molecule Viewer - Always show */}
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-muted-foreground">Estrutura 3D</p>
+                <div className="border rounded-lg overflow-hidden bg-muted/30">
+                  <MoleculeViewer 
+                    smiles={molecularData?.smiles} 
+                    pubchemCid={molecularData?.pubchem_cid}
+                    moleculeName={molecularData?.molecule_name || moleculeName}
+                    width={350} 
+                    height={300}
+                    rotating={true}
+                  />
                 </div>
-              )}
+                {molecularData?.smiles && (
+                  <p className="text-xs text-muted-foreground font-mono break-all mt-2">
+                    SMILES: {molecularData.smiles}
+                  </p>
+                )}
+              </div>
 
               {/* Molecular Properties */}
               <div className="space-y-4">
