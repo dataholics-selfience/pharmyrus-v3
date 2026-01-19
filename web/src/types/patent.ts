@@ -6,14 +6,14 @@ export interface Patent {
   source: string
   title: string
   applicants: string[]
-  inventors: string[]
-  ipc_codes: string[]
+  inventors?: string[]
+  ipc_codes?: string[]
   filing_date: string
-  publication_date: string
+  publication_date?: string
   grant_date?: string
   expiration_date: string
   years_until_expiration?: number
-  patent_status: string
+  patent_status?: string
   wo_number?: string
   pct_number?: string
   link_national?: string
