@@ -147,6 +147,7 @@ export function groupPatentVariants(patents: Patent[]): PatentVariant[] {
 /**
  * Merge patent variants into display patents
  * Keeps variants without data as references only
+ * IMPROVED: Now merges Google Patents (with suffix) with INPI base (no suffix)
  */
 export function mergePatentVariants(patents: Patent[]): Patent[] {
   const grouped = groupPatentVariants(patents)
@@ -155,10 +156,6 @@ export function mergePatentVariants(patents: Patent[]): Patent[] {
   grouped.forEach(group => {
     if (group.hasData && group.mainPatent) {
       // Use main patent data
-      const mainVariant = group.variants.find(v => 
-        v.fullNumber === group.mainPatent!.patent_number
-      )
-      
       const mergedPatent: Patent = {
         ...group.mainPatent,
         // Add metadata about variants
@@ -174,23 +171,8 @@ export function mergePatentVariants(patents: Patent[]): Patent[] {
       }
       
       merged.push(mergedPatent)
-    } else if (group.variants.length > 0) {
-      // No data for any variant - keep first one as placeholder
-      const placeholder = group.variants[0]
-      merged.push({
-        ...placeholder.patent,
-        _baseNumber: group.baseNumber,
-        _hasVariants: group.variants.length > 1,
-        _variantTypes: group.variants.map(v => v.type).join(', '),
-        _isPlaceholder: true,
-        _allVariants: group.variants.map(v => ({
-          number: v.fullNumber,
-          type: v.type,
-          description: v.description,
-          hasData: false
-        }))
-      })
     }
+    // Remove else - don't keep placeholders without data
   })
   
   return merged

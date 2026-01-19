@@ -16,7 +16,7 @@ import {
 import { PatentModal } from '@/components/PatentModal'
 import { PatentListVirtual } from '@/components/PatentListVirtual'
 import { MoleculeViewer } from '@/components/MoleculeViewer'
-import { RDModal } from '@/components/RDModal'
+import { MoleculeCard } from '@/components/MoleculeCard'
 import { TimelineModal } from '@/components/TimelineModal'
 import { ConfidenceModal } from '@/components/ConfidenceModal'
 import { useExportExcel } from '@/hooks/useExportExcel'
@@ -103,6 +103,8 @@ interface ResultData {
       iupac_name?: string
       cas_number?: string
       pubchem_cid?: number | string
+      development_codes?: string[]
+      synonyms?: string[]
     }
     clinical_trials_data?: any
     fda_data?: any
@@ -120,7 +122,6 @@ export function ResultsScientificPage() {
   const [timelineModalOpen, setTimelineModalOpen] = useState(false)
   const [selectedYear, setSelectedYear] = useState<number | null>(null)
   const [confidenceModalOpen, setConfidenceModalOpen] = useState(false)
-  const [rdModalOpen, setRdModalOpen] = useState(false)
 
   if (!result) {
     return (
@@ -453,17 +454,35 @@ export function ResultsScientificPage() {
           </Card>
         </div>
 
-        {/* AI Analysis Card - Phase 7 */}
-        <AIAnalysisCard
-          moleculeName={metadata.molecule_name}
-          totalPatents={summary.total_patents}
-          cliffStatus={cliff.status || 'Unknown'}
-          firstExpiration={cliff.first_expiration || 'N/A'}
-          countries={metadata.target_countries || ['BR']}
-          sources={Object.keys(summary.by_source || {}).filter(s => summary.by_source[s] > 0)}
-          autoLoad={true}
-          jobId={metadata.search_id}
-        />
+        {/* Molecule Card + AI Analysis in 2-column grid */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Molecule 3D + Data */}
+          <MoleculeCard
+            moleculeName={metadata.molecule_name}
+            brandName={metadata.brand_name}
+            smiles={molecularData?.smiles}
+            pubchemCid={molecularData?.pubchem_cid}
+            molecularData={{
+              development_codes: molecularData?.development_codes,
+              synonyms: molecularData?.synonyms,
+              cas_number: molecularData?.cas_number,
+              molecular_formula: molecularData?.molecular_formula,
+              molecular_weight: molecularData?.molecular_weight
+            }}
+          />
+
+          {/* AI Analysis Card - Phase 7 */}
+          <AIAnalysisCard
+            moleculeName={metadata.molecule_name}
+            totalPatents={summary.total_patents}
+            cliffStatus={cliff.status || 'Unknown'}
+            firstExpiration={cliff.first_expiration || 'N/A'}
+            countries={metadata.target_countries || ['BR']}
+            sources={Object.keys(summary.by_source || {}).filter(s => summary.by_source[s] > 0)}
+            autoLoad={true}
+            jobId={metadata.search_id}
+          />
+        </div>
 
         {/* Patent Cliff Timeline */}
         <Card>
@@ -545,32 +564,6 @@ export function ResultsScientificPage() {
           </CardContent>
         </Card>
 
-        {/* R&D Section - Now as Modal */}
-        <Card className="bg-gradient-to-br from-primary/5 to-transparent border-primary/20">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-primary/10 rounded-lg">
-                  <Microscope className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold">Pesquisa & Desenvolvimento</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Dados moleculares, ensaios clínicos, aprovações regulatórias e literatura científica
-                  </p>
-                </div>
-              </div>
-              <Button 
-                onClick={() => setRdModalOpen(true)}
-                className="gap-2"
-              >
-                <Microscope className="h-4 w-4" />
-                Ver Detalhes P&D
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Patents List */}
         <Card>
           <CardHeader>
@@ -581,7 +574,7 @@ export function ResultsScientificPage() {
                   Patentes Identificadas ({processedPatents.length})
                 </CardTitle>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Clique em uma patente para ver detalhes completos
+                  Inclui {patents.length} patentes confirmadas + {processedPatents.length - patents.length} predições | Clique para detalhes
                 </p>
               </div>
               
@@ -642,17 +635,6 @@ export function ResultsScientificPage() {
         open={!!selectedPatent}
         onOpenChange={(open) => !open && setSelectedPatent(null)}
         jobId={metadata.search_id}
-      />
-
-      {/* R&D Modal */}
-      <RDModal
-        open={rdModalOpen}
-        onOpenChange={setRdModalOpen}
-        molecularData={result.research_and_development?.molecular_data}
-        clinicalTrials={result.research_and_development?.clinical_trials_data}
-        fdaData={result.research_and_development?.fda_data}
-        pubmedData={result.research_and_development?.pubmed_data}
-        moleculeName={metadata.molecule_name}
       />
 
       {/* Timeline Modal - Patents by Year */}
