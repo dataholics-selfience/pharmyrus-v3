@@ -1,4 +1,10 @@
 import { useState, useCallback } from 'react'
+import { 
+  getPortfolioAnalysisCache, 
+  savePortfolioAnalysisCache,
+  getPatentAnalysisCache,
+  savePatentAnalysisCache
+} from '@/services/aiAnalysisCache'
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions'
 const GROQ_MODEL = 'llama-3.3-70b-versatile'
@@ -17,6 +23,7 @@ interface AnalysisResult {
   content: string
   model: string
   tokens_used: number
+  fromCache?: boolean
 }
 
 export function useGroqAnalysis() {
@@ -27,7 +34,7 @@ export function useGroqAnalysis() {
   const apiKey = import.meta.env.VITE_GROQ_API_KEY
 
   /**
-   * Executive Summary Analysis
+   * Executive Summary Analysis (with Firestore cache)
    */
   const analyzePortfolio = useCallback(async (
     moleculeName: string,
@@ -35,7 +42,8 @@ export function useGroqAnalysis() {
     cliffStatus: string,
     firstExpiration: string,
     countries: string[],
-    sources: string[]
+    sources: string[],
+    jobId?: string
   ): Promise<AnalysisResult | null> => {
     if (!apiKey) {
       setError('Groq API key not configured')
@@ -44,6 +52,26 @@ export function useGroqAnalysis() {
 
     setLoading(true)
     setError(null)
+
+    try {
+      // Check cache first if jobId provided
+      if (jobId) {
+        console.log(`[Groq] Checking cache for portfolio ${jobId}...`)
+        const cached = await getPortfolioAnalysisCache(jobId)
+        
+        if (cached) {
+          console.log(`[Groq] ✅ Using cached portfolio analysis`)
+          setLoading(false)
+          return {
+            content: cached.analysis,
+            model: cached.model,
+            tokens_used: cached.tokensUsed,
+            fromCache: true
+          }
+        }
+        
+        console.log(`[Groq] No cache found, calling API...`)
+      }
 
     const prompt = `Você é um especialista em propriedade intelectual farmacêutica. Analise o seguinte portfólio de patentes:
 
@@ -94,11 +122,38 @@ Seja objetivo, técnico e baseado nos dados fornecidos. Use linguagem profission
 
       const data = await response.json()
       
-      return {
+      const result: AnalysisResult = {
         content: data.choices[0]?.message?.content || '',
         model: data.model,
-        tokens_used: data.usage?.total_tokens || 0
+        tokens_used: data.usage?.total_tokens || 0,
+        fromCache: false
       }
+      
+      // Save to cache if jobId provided
+      if (jobId && result.content) {
+        try {
+          await savePortfolioAnalysisCache(
+            jobId,
+            moleculeName,
+            result.content,
+            result.tokens_used,
+            result.model,
+            {
+              totalPatents,
+              cliffStatus,
+              firstExpiration,
+              countries,
+              sources
+            }
+          )
+          console.log(`[Groq] ✅ Saved portfolio analysis to cache`)
+        } catch (cacheError) {
+          console.error('[Groq] Failed to save to cache:', cacheError)
+          // Don't fail the request if cache save fails
+        }
+      }
+      
+      return result
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error'
       setError(message)
@@ -112,7 +167,7 @@ Seja objetivo, técnico e baseado nos dados fornecidos. Use linguagem profission
   /**
    * Individual Patent Analysis
    */
-  const analyzePatent = useCallback(async (patent: Patent): Promise<AnalysisResult | null> => {
+  const analyzePatent = useCallback(async (patent: Patent, jobId?: string): Promise<AnalysisResult | null> => {
     if (!apiKey) {
       setError('Groq API key not configured')
       return null
@@ -120,6 +175,26 @@ Seja objetivo, técnico e baseado nos dados fornecidos. Use linguagem profission
 
     setLoading(true)
     setError(null)
+
+    try {
+      // Check cache first if jobId provided
+      if (jobId) {
+        console.log(`[Groq] Checking cache for patent ${patent.patent_number}...`)
+        const cached = await getPatentAnalysisCache(jobId, patent.patent_number)
+        
+        if (cached) {
+          console.log(`[Groq] ✅ Using cached patent analysis`)
+          setLoading(false)
+          return {
+            content: cached.analysis,
+            model: cached.model,
+            tokens_used: cached.tokensUsed,
+            fromCache: true
+          }
+        }
+        
+        console.log(`[Groq] No cache found, calling API...`)
+      }
 
     const prompt = `Você é um especialista em análise de patentes farmacêuticas. Analise a seguinte patente:
 
@@ -173,11 +248,36 @@ Seja técnico, preciso e objetivo. Limite a 3-4 parágrafos.`
 
       const data = await response.json()
       
-      return {
+      const result: AnalysisResult = {
         content: data.choices[0]?.message?.content || '',
         model: data.model,
-        tokens_used: data.usage?.total_tokens || 0
+        tokens_used: data.usage?.total_tokens || 0,
+        fromCache: false
       }
+      
+      // Save to cache if jobId provided
+      if (jobId && result.content) {
+        try {
+          await savePatentAnalysisCache(
+            jobId,
+            patent.patent_number,
+            result.content,
+            result.tokens_used,
+            result.model,
+            {
+              title: patent.title,
+              applicants: patent.applicants,
+              expirationDate: patent.expiration_date
+            }
+          )
+          console.log(`[Groq] ✅ Saved patent analysis to cache`)
+        } catch (cacheError) {
+          console.error('[Groq] Failed to save to cache:', cacheError)
+          // Don't fail the request if cache save fails
+        }
+      }
+      
+      return result
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error'
       setError(message)

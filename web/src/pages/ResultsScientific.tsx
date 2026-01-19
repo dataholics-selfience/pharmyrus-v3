@@ -16,11 +16,16 @@ import {
 import { PatentModal } from '@/components/PatentModal'
 import { PatentListVirtual } from '@/components/PatentListVirtual'
 import { MoleculeViewer } from '@/components/MoleculeViewer'
-import { RDSection } from '@/components/RDSection'
+import { RDModal } from '@/components/RDModal'
 import { TimelineModal } from '@/components/TimelineModal'
 import { ConfidenceModal } from '@/components/ConfidenceModal'
 import { useExportExcel } from '@/hooks/useExportExcel'
 import { AIAnalysisCard } from '@/components/AIAnalysisCard'
+import { 
+  mergePatentVariants, 
+  inferredEventToPatent,
+  isPredictedPatent
+} from '@/lib/patentUtils'
 
 interface Patent {
   patent_number: string
@@ -114,6 +119,7 @@ export function ResultsScientificPage() {
   const [timelineModalOpen, setTimelineModalOpen] = useState(false)
   const [selectedYear, setSelectedYear] = useState<number | null>(null)
   const [confidenceModalOpen, setConfidenceModalOpen] = useState(false)
+  const [rdModalOpen, setRdModalOpen] = useState(false)
 
   if (!result) {
     return (
@@ -172,6 +178,24 @@ export function ResultsScientificPage() {
   const predictive = result.predictive_intelligence?.summary?.by_confidence_tier || {}
   const molecularData = result.research_and_development?.molecular_data
 
+  // Process patents: merge variants and add predictions
+  const processedPatents = useMemo(() => {
+    let allPatents = [...patents]
+    
+    // Add predicted patents from inferred_events
+    const inferredEvents = result.predictive_intelligence?.inferred_events || []
+    const predictedPatents = inferredEvents
+      .map(inferredEventToPatent)
+      .filter((p): p is Patent => p !== null)
+    
+    allPatents = [...allPatents, ...predictedPatents]
+    
+    // Merge patent variants (A2, B1, etc.)
+    const merged = mergePatentVariants(allPatents)
+    
+    return merged
+  }, [patents, result.predictive_intelligence])
+
   // Process timeline data for Patent Cliff visualization
   const timelineData = useMemo(() => {
     if (!cliff.all_expirations) return []
@@ -221,7 +245,7 @@ export function ResultsScientificPage() {
 
   // Get patents for a specific year
   const getPatentsByYear = (year: number) => {
-    return patents.filter(p => {
+    return processedPatents.filter(p => {
       if (!p.expiration_date) return false
       const expYear = new Date(p.expiration_date).getFullYear()
       return expYear === year
@@ -436,6 +460,8 @@ export function ResultsScientificPage() {
           firstExpiration={cliff.first_expiration || 'N/A'}
           countries={metadata.target_countries || ['BR']}
           sources={Object.keys(summary.by_source || {}).filter(s => summary.by_source[s] > 0)}
+          autoLoad={true}
+          jobId={metadata.search_id}
         />
 
         {/* Patent Cliff Timeline */}
@@ -518,27 +544,31 @@ export function ResultsScientificPage() {
           </CardContent>
         </Card>
 
-        {/* R&D Section - Phase 4 */}
-        <div id="rd-section" className="scroll-mt-24">
-          <div className="bg-gradient-to-r from-primary/10 to-transparent p-4 rounded-lg mb-6">
-            <div className="flex items-center gap-3">
-              <Microscope className="h-6 w-6 text-primary" />
-              <div>
-                <h2 className="text-xl font-bold">Pesquisa & Desenvolvimento</h2>
-                <p className="text-sm text-muted-foreground">
-                  Dados moleculares, ensaios clínicos, aprovações regulatórias e literatura científica
-                </p>
+        {/* R&D Section - Now as Modal */}
+        <Card className="bg-gradient-to-br from-primary/5 to-transparent border-primary/20">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <Microscope className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold">Pesquisa & Desenvolvimento</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Dados moleculares, ensaios clínicos, aprovações regulatórias e literatura científica
+                  </p>
+                </div>
               </div>
+              <Button 
+                onClick={() => setRdModalOpen(true)}
+                className="gap-2"
+              >
+                <Microscope className="h-4 w-4" />
+                Ver Detalhes P&D
+              </Button>
             </div>
-          </div>
-          <RDSection 
-            molecularData={result.research_and_development?.molecular_data}
-            clinicalTrials={result.research_and_development?.clinical_trials_data}
-            fdaData={result.research_and_development?.fda_data}
-            pubmedData={result.research_and_development?.pubmed_data}
-            moleculeName={metadata.molecule_name}
-          />
-        </div>
+          </CardContent>
+        </Card>
 
         {/* Patents List */}
         <Card>
@@ -547,14 +577,14 @@ export function ResultsScientificPage() {
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <Database className="h-5 w-5" />
-                  Patentes Identificadas ({patents.length})
+                  Patentes Identificadas ({processedPatents.length})
                 </CardTitle>
                 <p className="text-sm text-muted-foreground mt-1">
                   Clique em uma patente para ver detalhes completos
                 </p>
               </div>
               
-              {patents.length > 10 && (
+              {processedPatents.length > 10 && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -577,17 +607,17 @@ export function ResultsScientificPage() {
           </CardHeader>
           <CardContent>
             <PatentListVirtual 
-              patents={showAllPatents ? patents : patents.slice(0, 10)}
+              patents={showAllPatents ? patents : processedPatents.slice(0, 10)}
               onPatentClick={setSelectedPatent}
             />
             
-            {!showAllPatents && patents.length > 10 && (
+            {!showAllPatents && processedPatents.length > 10 && (
               <div className="text-center mt-4">
                 <Button
                   variant="outline"
                   onClick={() => setShowAllPatents(true)}
                 >
-                  Carregar mais {patents.length - 10} patentes
+                  Carregar mais {processedPatents.length - 10} patentes
                 </Button>
               </div>
             )}
@@ -610,6 +640,18 @@ export function ResultsScientificPage() {
         patent={selectedPatent}
         open={!!selectedPatent}
         onOpenChange={(open) => !open && setSelectedPatent(null)}
+        jobId={metadata.search_id}
+      />
+
+      {/* R&D Modal */}
+      <RDModal
+        open={rdModalOpen}
+        onOpenChange={setRdModalOpen}
+        molecularData={result.research_and_development?.molecular_data}
+        clinicalTrials={result.research_and_development?.clinical_trials_data}
+        fdaData={result.research_and_development?.fda_data}
+        pubmedData={result.research_and_development?.pubmed_data}
+        moleculeName={metadata.molecule_name}
       />
 
       {/* Timeline Modal - Patents by Year */}

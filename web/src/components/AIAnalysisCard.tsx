@@ -17,6 +17,7 @@ interface AIAnalysisCardProps {
   countries: string[]
   sources: string[]
   autoLoad?: boolean
+  jobId?: string
 }
 
 export function AIAnalysisCard({
@@ -26,7 +27,8 @@ export function AIAnalysisCard({
   firstExpiration,
   countries,
   sources,
-  autoLoad = false
+  autoLoad = false,
+  jobId
 }: AIAnalysisCardProps) {
   const { analyzePortfolio, loading, error, isConfigured } = useGroqAnalysis()
   
@@ -34,6 +36,8 @@ export function AIAnalysisCard({
   const [tokensUsed, setTokensUsed] = useState(0)
   const [expanded, setExpanded] = useState(true)
   const [hasLoaded, setHasLoaded] = useState(false)
+  const [showFullText, setShowFullText] = useState(false)
+  const [fromCache, setFromCache] = useState(false)
 
   // Auto-load on mount if enabled
   useEffect(() => {
@@ -49,12 +53,14 @@ export function AIAnalysisCard({
       cliffStatus,
       firstExpiration,
       countries,
-      sources
+      sources,
+      jobId
     )
 
     if (result) {
       setAnalysis(result.content)
       setTokensUsed(result.tokens_used)
+      setFromCache(result.fromCache || false)
       setHasLoaded(true)
     }
   }
@@ -170,7 +176,7 @@ export function AIAnalysisCard({
           {analysis && !loading && (
             <div className="space-y-4">
               <div className="prose prose-sm max-w-none">
-                {analysis.split('\n\n').map((paragraph, idx) => (
+                {analysis.split('\n\n').slice(0, showFullText ? undefined : 2).map((paragraph, idx) => (
                   <p key={idx} className="text-sm leading-relaxed text-foreground">
                     {paragraph.split('**').map((part, partIdx) => 
                       partIdx % 2 === 1 ? (
@@ -183,6 +189,27 @@ export function AIAnalysisCard({
                     )}
                   </p>
                 ))}
+                
+                {/* Read more button */}
+                {!showFullText && analysis.split('\n\n').length > 2 && (
+                  <button
+                    onClick={() => setShowFullText(true)}
+                    className="text-sm text-primary hover:text-primary/80 font-medium flex items-center gap-1 mt-2"
+                  >
+                    Ler mais
+                    <ChevronDown className="h-3 w-3" />
+                  </button>
+                )}
+                
+                {showFullText && analysis.split('\n\n').length > 2 && (
+                  <button
+                    onClick={() => setShowFullText(false)}
+                    className="text-sm text-primary hover:text-primary/80 font-medium flex items-center gap-1 mt-2"
+                  >
+                    Ler menos
+                    <ChevronUp className="h-3 w-3" />
+                  </button>
+                )}
               </div>
 
               {/* Footer */}
@@ -190,6 +217,11 @@ export function AIAnalysisCard({
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <FileText className="h-3 w-3" />
                   <span>Análise gerada por IA - verifique com especialistas</span>
+                  {fromCache && (
+                    <Badge variant="outline" className="text-xs">
+                      Cache
+                    </Badge>
+                  )}
                 </div>
                 
                 <Button 

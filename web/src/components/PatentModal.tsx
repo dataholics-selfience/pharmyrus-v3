@@ -19,6 +19,7 @@ import {
   TrendingUp, Scale
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { PatentAIAnalysis } from '@/components/PatentAIAnalysis'
 
 interface Patent {
   patent_number: string
@@ -53,9 +54,10 @@ interface PatentModalProps {
   patent: Patent | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  jobId?: string
 }
 
-export function PatentModal({ patent, open, onOpenChange }: PatentModalProps) {
+export function PatentModal({ patent, open, onOpenChange, jobId }: PatentModalProps) {
   if (!patent) return null
 
   const isPredicted = patent.confidence_tier && 
@@ -466,6 +468,13 @@ export function PatentModal({ patent, open, onOpenChange }: PatentModalProps) {
 
           {/* Analysis Tab */}
           <TabsContent value="analysis" className="space-y-4 mt-4">
+            {/* AI Analysis */}
+            <PatentAIAnalysis 
+              patent={patent}
+              jobId={jobId}
+              autoLoad={true}
+            />
+            
             <Card>
               <CardHeader>
                 <CardTitle className="text-sm flex items-center gap-2">
