@@ -213,26 +213,14 @@ export function AIAnalysisCard({
               </div>
 
               {/* Footer */}
-              <div className="flex items-center justify-between pt-4 border-t">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <FileText className="h-3 w-3" />
-                  <span>Análise gerada por IA - verifique com especialistas</span>
-                  {fromCache && (
-                    <Badge variant="outline" className="text-xs">
-                      Cache
-                    </Badge>
-                  )}
-                </div>
-                
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={handleAnalyze}
-                  className="text-xs"
-                >
-                  <RefreshCw className="h-3 w-3 mr-1" />
-                  Regenerar
-                </Button>
+              <div className="flex items-center gap-2 pt-4 border-t text-xs text-muted-foreground">
+                <FileText className="h-3 w-3" />
+                <span>Análise gerada por IA - verifique com especialistas</span>
+                {fromCache && (
+                  <Badge variant="outline" className="text-xs">
+                    Cache
+                  </Badge>
+                )}
               </div>
             </div>
           )}

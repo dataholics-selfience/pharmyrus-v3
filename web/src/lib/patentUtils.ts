@@ -78,14 +78,28 @@ export function getPatentTypeDescription(type: string | null): string {
 
 /**
  * Check if patent has meaningful data
+ * More strict for regular patents: requires valid dates
+ * But accepts predictions even without dates
  */
 export function hasPatentData(patent: Patent): boolean {
-  return !!(
+  // Predictions are always considered to have data
+  if ((patent as any)._isPrediction) {
+    return true
+  }
+  
+  // For regular patents: must have at least a valid filing date or publication date
+  const hasValidDate = !!(
+    patent.filing_date && patent.filing_date !== 'N/A' && patent.filing_date !== 'Invalid Date' ||
+    patent.publication_date && patent.publication_date !== 'N/A' && patent.publication_date !== 'Invalid Date'
+  )
+  
+  // Must have title or applicants
+  const hasBasicInfo = !!(
     patent.title ||
-    patent.filing_date ||
-    patent.publication_date ||
     patent.applicants?.length > 0
   )
+  
+  return hasValidDate && hasBasicInfo
 }
 
 /**
