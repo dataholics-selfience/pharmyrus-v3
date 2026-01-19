@@ -15,6 +15,8 @@ import {
 import { PatentModal } from '@/components/PatentModal'
 import { PatentListVirtual } from '@/components/PatentListVirtual'
 import { MoleculeViewer } from '@/components/MoleculeViewer'
+import { RDSection } from '@/components/RDSection'
+import { useExportExcel } from '@/hooks/useExportExcel'
 
 interface Patent {
   patent_number: string
@@ -206,6 +208,19 @@ export function ResultsScientificPage() {
 
   const totalConfidencePatents = confidenceData.reduce((sum, tier) => sum + tier.count, 0)
 
+  const { exportToExcel } = useExportExcel()
+
+  const handleExport = () => {
+    const result = exportToExcel(patents, metadata.molecule_name)
+    if (result.success) {
+      // Toast de sucesso (opcional)
+      console.log('✅ Excel exportado:', result.filename)
+    } else {
+      console.error('❌ Erro ao exportar:', result.error)
+      alert('Erro ao exportar Excel: ' + result.error)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -232,7 +247,7 @@ export function ResultsScientificPage() {
           </div>
           
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={handleExport}>
               <FileDown className="h-4 w-4 mr-2" />
               Exportar Excel
             </Button>
@@ -478,6 +493,14 @@ export function ResultsScientificPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* R&D Section - Phase 4 */}
+        <RDSection 
+          molecularData={result.research_and_development?.molecular_data}
+          clinicalTrials={result.research_and_development?.clinical_trials_data}
+          fdaData={result.research_and_development?.fda_data}
+          pubmedData={result.research_and_development?.pubmed_data}
+        />
 
         {/* Patents List */}
         <Card>

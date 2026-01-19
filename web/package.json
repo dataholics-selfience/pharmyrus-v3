@@ -35,7 +35,8 @@
     "@radix-ui/react-tabs": "^1.0.4",
     "class-variance-authority": "^0.7.0",
     "tailwindcss-animate": "^1.0.7",
-    "3dmol": "^2.0.4"
+    "3dmol": "^2.0.4",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/react": "^18.2.48",
