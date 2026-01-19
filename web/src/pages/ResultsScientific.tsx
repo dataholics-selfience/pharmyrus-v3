@@ -93,6 +93,7 @@ interface ResultData {
         SPECULATIVE?: number
       }
     }
+    inferred_events?: Array<any>
   }
   research_and_development?: {
     molecular_data?: {
