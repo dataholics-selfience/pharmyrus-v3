@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore'
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, setDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -135,20 +135,51 @@ export function SubscriptionsManagement() {
         console.log(`👥 Vinculando ${newSub.userIds.length} usuário(s)...`)
         
         for (const userId of newSub.userIds) {
-          console.log(`  Vinculando usuário: ${userId}`)
-          await updateDoc(doc(db, 'userPlans', userId), {
-            subscriptionId: subRef.id,
-            organizationId: org.id,
-            organizationType: 'company',
-            planId: plan.id,
-            planName: plan.name,
-            searchesLimit: plan.searchesPerUser,
-            updatedAt: new Date()
-          })
-          console.log(`  ✅ Usuário ${userId} vinculado`)
+          try {
+            console.log(`  Vinculando usuário: ${userId}`)
+            
+            // Verificar se userPlan existe
+            const userPlanRef = doc(db, 'userPlans', userId)
+            const userPlanSnap = await getDocs(collection(db, 'userPlans'))
+            const userPlanExists = userPlanSnap.docs.some(d => d.id === userId)
+            
+            if (userPlanExists) {
+              // Atualizar existente
+              await updateDoc(userPlanRef, {
+                subscriptionId: subRef.id,
+                organizationId: org.id,
+                organizationType: 'company',
+                planId: plan.id,
+                planName: plan.name,
+                searchesLimit: plan.searchesPerUser,
+                updatedAt: new Date()
+              })
+              console.log(`  ✅ Usuário ${userId} vinculado (atualizado)`)
+            } else {
+              // Criar novo userPlan
+              await setDoc(userPlanRef, {
+                userId: userId,
+                subscriptionId: subRef.id,
+                organizationId: org.id,
+                organizationType: 'company',
+                planId: plan.id,
+                planName: plan.name,
+                role: 'member',
+                searchesUsed: 0,
+                searchesLimit: plan.searchesPerUser,
+                status: 'active',
+                createdAt: new Date(),
+                updatedAt: new Date()
+              })
+              console.log(`  ✅ Usuário ${userId} vinculado (criado novo)`)
+            }
+          } catch (userError) {
+            console.error(`  ❌ Erro ao vincular usuário ${userId}:`, userError)
+            // Continua para próximo usuário mesmo com erro
+          }
         }
         
-        console.log(`✅ Todos os usuários vinculados!`)
+        console.log(`✅ Processamento de usuários concluído!`)
         toast.success(`Assinatura criada com ${newSub.userIds.length} usuário(s)!`)
       } else {
         toast.success('Assinatura criada!')

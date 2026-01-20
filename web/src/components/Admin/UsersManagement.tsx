@@ -293,20 +293,47 @@ export function UsersManagement() {
     try {
       // Deletar userPlan
       console.log(`Deletando userPlan: ${userId}`)
-      await deleteDoc(doc(db, 'userPlans', userId))
-      console.log(`✅ userPlan deletado`)
+      try {
+        await deleteDoc(doc(db, 'userPlans', userId))
+        console.log(`✅ userPlan deletado`)
+      } catch (error: any) {
+        if (error.code === 'not-found') {
+          console.log(`⚠️ userPlan não encontrado (pode já ter sido deletado)`)
+        } else {
+          throw error
+        }
+      }
       
       // Deletar user
       console.log(`Deletando user: ${userId}`)
-      await deleteDoc(doc(db, 'users', userId))
-      console.log(`✅ user deletado`)
+      try {
+        await deleteDoc(doc(db, 'users', userId))
+        console.log(`✅ user deletado`)
+      } catch (error: any) {
+        if (error.code === 'not-found') {
+          console.log(`⚠️ user não encontrado (pode já ter sido deletado)`)
+        } else {
+          throw error
+        }
+      }
 
       toast.success('Usuário removido do Firestore!')
-      toast.info('Nota: Remova também do Firebase Auth Console')
+      toast.info('Nota: Remova também do Firebase Auth Console', { duration: 5000 })
       
-      console.log(`Recarregando lista de usuários...`)
+      console.log(`🔄 Recarregando lista de usuários...`)
       await loadData()
       console.log(`✅ Lista recarregada`)
+      
+      // Verificar se realmente foi deletado
+      const usersAfter = await getDocs(collection(db, 'users'))
+      const stillExists = usersAfter.docs.some(d => d.id === userId)
+      if (stillExists) {
+        console.error(`⚠️ ATENÇÃO: Usuário ${userId} ainda existe no Firestore!`)
+        console.error(`Possível problema de permissões do Firestore`)
+        toast.warning('Usuário pode não ter sido deletado. Verifique as permissões do Firestore.')
+      } else {
+        console.log(`✅ Confirmado: Usuário ${userId} foi deletado do Firestore`)
+      }
     } catch (error: any) {
       console.error('❌ Error deleting user:', error)
       console.error('Código do erro:', error.code)
