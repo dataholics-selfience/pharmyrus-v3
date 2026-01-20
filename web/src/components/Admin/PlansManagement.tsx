@@ -110,6 +110,8 @@ export function PlansManagement() {
         features: [''],
         isActive: true
       })
+      
+      // Auto-refresh
       await loadPlans()
     } catch (error) {
       console.error('Error creating plan:', error)
@@ -125,6 +127,8 @@ export function PlansManagement() {
     try {
       await deleteDoc(doc(db, 'plans', planId))
       toast.success('Plano deletado')
+      
+      // Auto-refresh
       await loadPlans()
     } catch (error) {
       console.error('Error deleting plan:', error)

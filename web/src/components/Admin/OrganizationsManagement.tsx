@@ -1,16 +1,30 @@
 import { useState, useEffect } from 'react'
-import { collection, getDocs } from 'firebase/firestore'
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { Organization } from '@/types/plans'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Building2, Loader2, Search, User } from 'lucide-react'
+import { Label } from '@/components/ui/label'
+import { Button } from '@/components/ui/button'
+import { Building2, Loader2, Search, User, Plus, Edit, Trash2, Save, X } from 'lucide-react'
+import { toast } from 'sonner'
 
 export function OrganizationsManagement() {
   const [organizations, setOrganizations] = useState<Organization[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+  const [creatingNew, setCreatingNew] = useState(false)
+  const [editingOrg, setEditingOrg] = useState<Organization | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [newOrg, setNewOrg] = useState({
+    name: '',
+    type: 'individual' as 'individual' | 'company',
+    email: '',
+    cnpj: '',
+    phone: '',
+    status: 'active' as 'active' | 'inactive'
+  })
 
   useEffect(() => {
     loadOrganizations()
@@ -26,7 +40,6 @@ export function OrganizationsManagement() {
         updatedAt: doc.data().updatedAt?.toDate()
       })) as Organization[]
 
-      // Ordenar por data de criação
       orgsData.sort((a, b) => {
         if (!a.createdAt || !b.createdAt) return 0
         return b.createdAt.getTime() - a.createdAt.getTime()
@@ -37,6 +50,86 @@ export function OrganizationsManagement() {
       console.error('Error loading organizations:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleCreateNew = async () => {
+    if (!newOrg.name || !newOrg.email) {
+      toast.error('Preencha nome e email')
+      return
+    }
+
+    setSaving(true)
+    try {
+      await addDoc(collection(db, 'organizations'), {
+        ...newOrg,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        createdBy: 'admin'
+      })
+
+      toast.success('Organização criada!')
+      setCreatingNew(false)
+      setNewOrg({
+        name: '',
+        type: 'individual',
+        email: '',
+        cnpj: '',
+        phone: '',
+        status: 'active'
+      })
+      
+      await loadOrganizations()
+    } catch (error) {
+      console.error('Error creating organization:', error)
+      toast.error('Erro ao criar organização')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleEdit = (org: Organization) => {
+    setEditingOrg({ ...org })
+  }
+
+  const handleSave = async () => {
+    if (!editingOrg) return
+
+    setSaving(true)
+    try {
+      await updateDoc(doc(db, 'organizations', editingOrg.id), {
+        name: editingOrg.name,
+        type: editingOrg.type,
+        email: editingOrg.email,
+        cnpj: editingOrg.cnpj || null,
+        phone: editingOrg.phone || null,
+        status: editingOrg.status,
+        updatedAt: new Date()
+      })
+
+      toast.success('Organização atualizada!')
+      setEditingOrg(null)
+      
+      await loadOrganizations()
+    } catch (error) {
+      console.error('Error updating organization:', error)
+      toast.error('Erro ao salvar')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async (orgId: string, orgName: string) => {
+    if (!confirm(`Deletar ${orgName}?`)) return
+
+    try {
+      await deleteDoc(doc(db, 'organizations', orgId))
+      toast.success('Organização deletada')
+      
+      await loadOrganizations()
+    } catch (error) {
+      console.error('Error deleting organization:', error)
+      toast.error('Erro ao deletar')
     }
   }
 
@@ -65,6 +158,10 @@ export function OrganizationsManagement() {
                 {organizations.length} organização(ões) cadastrada(s)
               </CardDescription>
             </div>
+            <Button onClick={() => setCreatingNew(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Nova Organização
+            </Button>
           </div>
         </CardHeader>
         <CardContent>
@@ -106,13 +203,15 @@ export function OrganizationsManagement() {
                           </CardDescription>
                         </div>
                       </div>
-                      <Badge variant={org.status === 'active' ? 'default' : 'secondary'}>
-                        {org.status === 'active' ? 'Ativa' : 'Inativa'}
-                      </Badge>
+                      <div className="flex gap-2">
+                        <Badge variant={org.status === 'active' ? 'default' : 'secondary'}>
+                          {org.status === 'active' ? 'Ativa' : 'Inativa'}
+                        </Badge>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-2 text-sm">
+                    <div className="space-y-2 text-sm mb-4">
                       <div>
                         <span className="text-muted-foreground">Email:</span>
                         <p className="font-medium">{org.email}</p>
@@ -131,12 +230,25 @@ export function OrganizationsManagement() {
                           <p className="font-medium">{org.phone}</p>
                         </div>
                       )}
-                      
-                      <div className="pt-2 border-t">
-                        <span className="text-muted-foreground text-xs">
-                          Criada em: {org.createdAt?.toLocaleDateString('pt-BR')}
-                        </span>
-                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => handleEdit(org)}
+                      >
+                        <Edit className="w-4 h-4 mr-1" />
+                        Editar
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleDelete(org.id, org.name)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -145,6 +257,184 @@ export function OrganizationsManagement() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Create Dialog */}
+      {creatingNew && (
+        <Card className="border-2 border-green-500">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Nova Organização</CardTitle>
+              <Button variant="ghost" size="sm" onClick={() => setCreatingNew(false)}>
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Nome *</Label>
+                <Input
+                  value={newOrg.name}
+                  onChange={(e) => setNewOrg({ ...newOrg, name: e.target.value })}
+                  placeholder="Nome da organização"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Tipo *</Label>
+                <select
+                  className="w-full border rounded-md px-3 py-2"
+                  value={newOrg.type}
+                  onChange={(e) => setNewOrg({ ...newOrg, type: e.target.value as 'individual' | 'company' })}
+                >
+                  <option value="individual">Individual</option>
+                  <option value="company">Empresa</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Email *</Label>
+                <Input
+                  type="email"
+                  value={newOrg.email}
+                  onChange={(e) => setNewOrg({ ...newOrg, email: e.target.value })}
+                  placeholder="email@exemplo.com"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>CNPJ</Label>
+                <Input
+                  value={newOrg.cnpj}
+                  onChange={(e) => setNewOrg({ ...newOrg, cnpj: e.target.value })}
+                  placeholder="00.000.000/0000-00"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Telefone</Label>
+                <Input
+                  value={newOrg.phone}
+                  onChange={(e) => setNewOrg({ ...newOrg, phone: e.target.value })}
+                  placeholder="(00) 00000-0000"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-4">
+              <Button variant="outline" onClick={() => setCreatingNew(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleCreateNew} disabled={saving}>
+                {saving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Criando...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Criar
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Edit Dialog */}
+      {editingOrg && (
+        <Card className="border-2 border-primary">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Editando: {editingOrg.name}</CardTitle>
+              <Button variant="ghost" size="sm" onClick={() => setEditingOrg(null)}>
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Nome</Label>
+                <Input
+                  value={editingOrg.name}
+                  onChange={(e) => setEditingOrg({ ...editingOrg, name: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Tipo</Label>
+                <select
+                  className="w-full border rounded-md px-3 py-2"
+                  value={editingOrg.type}
+                  onChange={(e) => setEditingOrg({ ...editingOrg, type: e.target.value as 'individual' | 'company' })}
+                >
+                  <option value="individual">Individual</option>
+                  <option value="company">Empresa</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input
+                  type="email"
+                  value={editingOrg.email}
+                  onChange={(e) => setEditingOrg({ ...editingOrg, email: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>CNPJ</Label>
+                <Input
+                  value={editingOrg.cnpj || ''}
+                  onChange={(e) => setEditingOrg({ ...editingOrg, cnpj: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Telefone</Label>
+                <Input
+                  value={editingOrg.phone || ''}
+                  onChange={(e) => setEditingOrg({ ...editingOrg, phone: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <select
+                  className="w-full border rounded-md px-3 py-2"
+                  value={editingOrg.status}
+                  onChange={(e) => setEditingOrg({ ...editingOrg, status: e.target.value as 'active' | 'inactive' })}
+                >
+                  <option value="active">Ativa</option>
+                  <option value="inactive">Inativa</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex gap-4">
+              <Button variant="outline" onClick={() => setEditingOrg(null)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleSave} disabled={saving}>
+                {saving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    Salvar
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
