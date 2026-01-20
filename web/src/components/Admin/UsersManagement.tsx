@@ -71,8 +71,18 @@ export function UsersManagement() {
       for (const userDoc of usersSnapshot.docs) {
         const userData = userDoc.data()
         
+        // Pular usuários deletados
+        if (userData.deleted === true) {
+          continue
+        }
+        
         const userPlanSnapshot = await getDocs(query(collection(db, 'userPlans')))
         const userPlan = userPlanSnapshot.docs.find(doc => doc.data().userId === userDoc.id)
+        
+        // Pular se userPlan está deletado
+        if (userPlan?.data().status === 'deleted') {
+          continue
+        }
 
         usersData.push({
           uid: userDoc.id,
@@ -286,54 +296,53 @@ export function UsersManagement() {
   }
 
   const handleDelete = async (userId: string, email: string) => {
-    if (!confirm(`Tem certeza que deseja deletar ${email}?\n\nIsso removerá o usuário do Firestore.`)) return
+    if (!confirm(`Tem certeza que deseja deletar ${email}?\n\nO usuário será marcado como deletado.`)) return
 
     console.log(`🗑️ Deletando usuário: ${userId} (${email})`)
     
     try {
-      // Deletar userPlan
-      console.log(`Deletando userPlan: ${userId}`)
+      // ESTRATÉGIA: Marcar como deleted ao invés de deletar
+      // Motivo: Não podemos deletar do Firebase Auth via JavaScript
+      
+      console.log(`Marcando userPlan como deletado: ${userId}`)
       try {
-        await deleteDoc(doc(db, 'userPlans', userId))
-        console.log(`✅ userPlan deletado`)
+        await updateDoc(doc(db, 'userPlans', userId), {
+          status: 'deleted',
+          deletedAt: new Date(),
+          deletedBy: 'admin'
+        })
+        console.log(`✅ userPlan marcado como deletado`)
       } catch (error: any) {
         if (error.code === 'not-found') {
-          console.log(`⚠️ userPlan não encontrado (pode já ter sido deletado)`)
+          console.log(`⚠️ userPlan não encontrado`)
         } else {
           throw error
         }
       }
       
-      // Deletar user
-      console.log(`Deletando user: ${userId}`)
+      console.log(`Marcando user como deletado: ${userId}`)
       try {
-        await deleteDoc(doc(db, 'users', userId))
-        console.log(`✅ user deletado`)
+        await updateDoc(doc(db, 'users', userId), {
+          deleted: true,
+          deletedAt: new Date(),
+          deletedBy: 'admin'
+        })
+        console.log(`✅ user marcado como deletado`)
       } catch (error: any) {
         if (error.code === 'not-found') {
-          console.log(`⚠️ user não encontrado (pode já ter sido deletado)`)
+          console.log(`⚠️ user não encontrado`)
         } else {
           throw error
         }
       }
 
-      toast.success('Usuário removido do Firestore!')
-      toast.info('Nota: Remova também do Firebase Auth Console', { duration: 5000 })
+      toast.success('Usuário desativado com sucesso!')
+      toast.info('Usuário não poderá mais acessar o sistema', { duration: 3000 })
       
       console.log(`🔄 Recarregando lista de usuários...`)
       await loadData()
       console.log(`✅ Lista recarregada`)
       
-      // Verificar se realmente foi deletado
-      const usersAfter = await getDocs(collection(db, 'users'))
-      const stillExists = usersAfter.docs.some(d => d.id === userId)
-      if (stillExists) {
-        console.error(`⚠️ ATENÇÃO: Usuário ${userId} ainda existe no Firestore!`)
-        console.error(`Possível problema de permissões do Firestore`)
-        toast.warning('Usuário pode não ter sido deletado. Verifique as permissões do Firestore.')
-      } else {
-        console.log(`✅ Confirmado: Usuário ${userId} foi deletado do Firestore`)
-      }
     } catch (error: any) {
       console.error('❌ Error deleting user:', error)
       console.error('Código do erro:', error.code)

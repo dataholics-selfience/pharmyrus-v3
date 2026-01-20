@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { signInWithEmailAndPassword } from 'firebase/auth'
-import { auth } from '@/lib/firebase'
+import { auth, db } from '@/lib/firebase'
+import { doc, getDoc } from 'firebase/firestore'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -26,7 +27,18 @@ export function LoginPage() {
     setLoading(true)
 
     try {
-      await signInWithEmailAndPassword(auth, email, password)
+      const userCredential = await signInWithEmailAndPassword(auth, email, password)
+      const userId = userCredential.user.uid
+      
+      // Verificar se usuário foi deletado
+      const userDoc = await getDoc(doc(db, 'users', userId))
+      if (userDoc.exists() && userDoc.data().deleted === true) {
+        console.log('⛔ Usuário deletado tentou fazer login')
+        await auth.signOut()
+        setError('Esta conta foi desativada. Entre em contato com o administrador.')
+        setLoading(false)
+        return
+      }
       
       console.log('✅ [LOGIN] Redirecting to landing')
       navigate('/')
