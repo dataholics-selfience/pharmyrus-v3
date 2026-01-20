@@ -12,6 +12,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Shield, Save, RotateCcw, LogOut, Settings, MessageSquare, BarChart3, Package, Building2, FileText, Users, Bell } from 'lucide-react'
 import { toast } from 'sonner'
 import { AnalyticsDashboard } from '@/components/Admin/AnalyticsDashboard'
+import { PlansManagement } from '@/components/Admin/PlansManagement'
+import { OrganizationsManagement } from '@/components/Admin/OrganizationsManagement'
+import { UsersManagement } from '@/components/Admin/UsersManagement'
 
 interface DrRootConfig {
   systemPrompt: string
@@ -188,40 +191,12 @@ export function AdminDashboardPage() {
 
           {/* Tab: Planos */}
           <TabsContent value="plans">
-            <Card>
-              <CardHeader>
-                <CardTitle>Gestão de Planos</CardTitle>
-                <CardDescription>
-                  Configure os planos disponíveis no sistema
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8 text-muted-foreground">
-                  <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>Componente de gestão de planos</p>
-                  <p className="text-sm">Em desenvolvimento...</p>
-                </div>
-              </CardContent>
-            </Card>
+            <PlansManagement />
           </TabsContent>
 
           {/* Tab: Organizações */}
           <TabsContent value="organizations">
-            <Card>
-              <CardHeader>
-                <CardTitle>Gestão de Organizações</CardTitle>
-                <CardDescription>
-                  Gerencie empresas e clientes
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8 text-muted-foreground">
-                  <Building2 className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>Componente de gestão de organizações</p>
-                  <p className="text-sm">Em desenvolvimento...</p>
-                </div>
-              </CardContent>
-            </Card>
+            <OrganizationsManagement />
           </TabsContent>
 
           {/* Tab: Assinaturas */}
@@ -245,21 +220,7 @@ export function AdminDashboardPage() {
 
           {/* Tab: Usuários */}
           <TabsContent value="users">
-            <Card>
-              <CardHeader>
-                <CardTitle>Gestão de Usuários</CardTitle>
-                <CardDescription>
-                  Crie e gerencie usuários do sistema
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8 text-muted-foreground">
-                  <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>Componente de gestão de usuários</p>
-                  <p className="text-sm">Em desenvolvimento...</p>
-                </div>
-              </CardContent>
-            </Card>
+            <UsersManagement />
           </TabsContent>
 
           {/* Tab: Renovações */}
