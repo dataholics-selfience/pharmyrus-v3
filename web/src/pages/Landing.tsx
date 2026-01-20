@@ -1,20 +1,27 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Shield } from 'lucide-react'
+import { Search, Shield, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { CountryMultiSelect } from '@/components/CountryMultiSelect'
 import { SearchHistoryGrid } from '@/components/SearchHistoryGrid'
+import { ValidationConfirmDialog } from '@/components/ValidationConfirmDialog'
 import { useAuth } from '@/hooks/useAuth'
+import { useInputValidation } from '@/hooks/useInputValidation'
 
 export function LandingPage() {
   const navigate = useNavigate()
   const { user, signOut } = useAuth()
+  const { validateInputs, loading: validating } = useInputValidation()
   
   const [molecule, setMolecule] = useState('')
   const [brand, setBrand] = useState('')
   const [countries, setCountries] = useState<string[]>(['BR'])
+  
+  // Validation dialog state
+  const [showValidationDialog, setShowValidationDialog] = useState(false)
+  const [validationResult, setValidationResult] = useState<any>(null)
 
   // Carregar campos salvos do localStorage ao montar componente
   useEffect(() => {
@@ -66,7 +73,7 @@ export function LandingPage() {
     }
   }
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
     
     // Check if user is authenticated
@@ -81,18 +88,65 @@ export function LandingPage() {
       return
     }
 
-    console.log('🚀 Executing search:', { molecule, brand, countries, user: user?.email || 'NO USER' })
+    console.log('🔍 Starting input validation...')
     
-    // Salvar antes de navegar (garantir persistência)
-    salvarCampos(molecule.trim(), brand.trim(), countries)
+    // Validate and correct inputs using Groq
+    const validation = await validateInputs(molecule.trim(), brand.trim())
+    
+    if (!validation) {
+      console.error('❌ Validation failed, using original inputs')
+      executeSearch(molecule.trim(), brand.trim())
+      return
+    }
+
+    // Check if there are changes
+    if (validation.changes.molecule || validation.changes.brand) {
+      console.log('⚠️ Changes detected, showing confirmation dialog')
+      setValidationResult(validation)
+      setShowValidationDialog(true)
+    } else {
+      console.log('✅ No changes needed, proceeding with search')
+      executeSearch(validation.correctedMolecule, validation.correctedBrand)
+    }
+  }
+
+  const executeSearch = (finalMolecule: string, finalBrand: string) => {
+    console.log('🚀 Executing search:', { 
+      molecule: finalMolecule, 
+      brand: finalBrand, 
+      countries, 
+      user: user?.email || 'NO USER' 
+    })
+    
+    // Salvar campos corrigidos
+    salvarCampos(finalMolecule, finalBrand, countries)
+    
+    // Atualizar campos visuais com valores corrigidos
+    setMolecule(finalMolecule)
+    setBrand(finalBrand)
     
     navigate('/search', { 
       state: { 
-        molecule: molecule.trim(), 
-        brand: brand.trim(),
+        molecule: finalMolecule, 
+        brand: finalBrand,
         countries: countries
       } 
     })
+  }
+
+  const handleValidationConfirm = () => {
+    setShowValidationDialog(false)
+    if (validationResult) {
+      executeSearch(
+        validationResult.correctedMolecule,
+        validationResult.correctedBrand
+      )
+    }
+  }
+
+  const handleValidationCancel = () => {
+    setShowValidationDialog(false)
+    setValidationResult(null)
   }
 
   return (
@@ -208,13 +262,43 @@ export function LandingPage() {
                   type="submit" 
                   className="w-full h-12 text-base gap-2"
                   size="lg"
+                  disabled={validating}
                 >
-                  <Search className="h-5 w-5" />
-                  Buscar Patentes
+                  {validating ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      Validando...
+                    </>
+                  ) : (
+                    <>
+                      <Search className="h-5 w-5" />
+                      Buscar Patentes
+                    </>
+                  )}
                 </Button>
               </form>
             </CardContent>
           </Card>
+
+          {/* Validation Confirmation Dialog */}
+          {validationResult && (
+            <ValidationConfirmDialog
+              open={showValidationDialog}
+              onOpenChange={setShowValidationDialog}
+              original={{
+                molecule,
+                brand
+              }}
+              corrected={{
+                molecule: validationResult.correctedMolecule,
+                brand: validationResult.correctedBrand
+              }}
+              changes={validationResult.changes}
+              suggestions={validationResult.suggestions}
+              onConfirm={handleValidationConfirm}
+              onCancel={handleValidationCancel}
+            />
+          )}
 
           {/* Search History Grid - Phase 6 */}
           {user && (
