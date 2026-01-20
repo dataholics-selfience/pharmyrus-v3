@@ -9,8 +9,9 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Shield, Save, RotateCcw, LogOut, Settings, MessageSquare } from 'lucide-react'
+import { Shield, Save, RotateCcw, LogOut, Settings, MessageSquare, BarChart3, Package, Building2, FileText, Users, Bell } from 'lucide-react'
 import { toast } from 'sonner'
+import { AnalyticsDashboard } from '@/components/Admin/AnalyticsDashboard'
 
 interface DrRootConfig {
   systemPrompt: string
@@ -148,20 +149,140 @@ export function AdminDashboardPage() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        <Tabs defaultValue="prompt" className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
-            <TabsTrigger value="prompt">
-              <MessageSquare className="w-4 h-4 mr-2" />
-              Prompt do Agente
+        <Tabs defaultValue="dashboard" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-7 max-w-4xl">
+            <TabsTrigger value="dashboard">
+              <BarChart3 className="w-4 h-4 mr-2" />
+              Dashboard
             </TabsTrigger>
-            <TabsTrigger value="settings">
-              <Settings className="w-4 h-4 mr-2" />
-              Configurações
+            <TabsTrigger value="plans">
+              <Package className="w-4 h-4 mr-2" />
+              Planos
+            </TabsTrigger>
+            <TabsTrigger value="organizations">
+              <Building2 className="w-4 h-4 mr-2" />
+              Organizações
+            </TabsTrigger>
+            <TabsTrigger value="subscriptions">
+              <FileText className="w-4 h-4 mr-2" />
+              Assinaturas
+            </TabsTrigger>
+            <TabsTrigger value="users">
+              <Users className="w-4 h-4 mr-2" />
+              Usuários
+            </TabsTrigger>
+            <TabsTrigger value="renewals">
+              <Bell className="w-4 h-4 mr-2" />
+              Renovações
+            </TabsTrigger>
+            <TabsTrigger value="drroot">
+              <MessageSquare className="w-4 h-4 mr-2" />
+              Dr. Root
             </TabsTrigger>
           </TabsList>
 
-          {/* Tab: Prompt do Agente */}
-          <TabsContent value="prompt" className="space-y-6">
+          {/* Tab: Dashboard Analytics */}
+          <TabsContent value="dashboard">
+            <AnalyticsDashboard />
+          </TabsContent>
+
+          {/* Tab: Planos */}
+          <TabsContent value="plans">
+            <Card>
+              <CardHeader>
+                <CardTitle>Gestão de Planos</CardTitle>
+                <CardDescription>
+                  Configure os planos disponíveis no sistema
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8 text-muted-foreground">
+                  <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>Componente de gestão de planos</p>
+                  <p className="text-sm">Em desenvolvimento...</p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Tab: Organizações */}
+          <TabsContent value="organizations">
+            <Card>
+              <CardHeader>
+                <CardTitle>Gestão de Organizações</CardTitle>
+                <CardDescription>
+                  Gerencie empresas e clientes
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8 text-muted-foreground">
+                  <Building2 className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>Componente de gestão de organizações</p>
+                  <p className="text-sm">Em desenvolvimento...</p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Tab: Assinaturas */}
+          <TabsContent value="subscriptions">
+            <Card>
+              <CardHeader>
+                <CardTitle>Gestão de Assinaturas</CardTitle>
+                <CardDescription>
+                  Gerencie contratações e renovações
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8 text-muted-foreground">
+                  <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>Componente de gestão de assinaturas</p>
+                  <p className="text-sm">Em desenvolvimento...</p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Tab: Usuários */}
+          <TabsContent value="users">
+            <Card>
+              <CardHeader>
+                <CardTitle>Gestão de Usuários</CardTitle>
+                <CardDescription>
+                  Crie e gerencie usuários do sistema
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8 text-muted-foreground">
+                  <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>Componente de gestão de usuários</p>
+                  <p className="text-sm">Em desenvolvimento...</p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Tab: Renovações */}
+          <TabsContent value="renewals">
+            <Card>
+              <CardHeader>
+                <CardTitle>Gestão de Renovações</CardTitle>
+                <CardDescription>
+                  Alertas e renovações de assinaturas
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8 text-muted-foreground">
+                  <Bell className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>Componente de gestão de renovações</p>
+                  <p className="text-sm">Em desenvolvimento...</p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Tab: Dr. Root (antigo Prompt) */}
+          <TabsContent value="drroot" className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>System Prompt - Dr. Root</CardTitle>
@@ -254,41 +375,6 @@ export function AdminDashboardPage() {
                       Nucleus sampling (0-1)
                     </p>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Tab: Configurações */}
-          <TabsContent value="settings" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Configurações do Sistema</CardTitle>
-                <CardDescription>
-                  Configurações adicionais e ferramentas administrativas
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="p-4 bg-slate-100 rounded-lg">
-                  <h3 className="font-medium mb-2">Informações da Configuração Atual</h3>
-                  <div className="space-y-1 text-sm">
-                    <p><span className="font-medium">Modelo:</span> {config.model}</p>
-                    <p><span className="font-medium">Temperature:</span> {config.temperature}</p>
-                    <p><span className="font-medium">Max Tokens:</span> {config.maxTokens}</p>
-                    <p><span className="font-medium">Top P:</span> {config.topP}</p>
-                    <p><span className="font-medium">Prompt Length:</span> {config.systemPrompt.length} chars</p>
-                  </div>
-                </div>
-
-                <div className="p-4 border border-amber-200 bg-amber-50 rounded-lg">
-                  <h3 className="font-medium text-amber-900 mb-2">⚠️ Zona de Perigo</h3>
-                  <p className="text-sm text-amber-800 mb-4">
-                    Restaurar configurações padrão irá sobrescrever todas as personalizações atuais.
-                  </p>
-                  <Button variant="destructive" onClick={resetToDefault}>
-                    <RotateCcw className="w-4 h-4 mr-2" />
-                    Restaurar Padrão
-                  </Button>
                 </div>
               </CardContent>
             </Card>
