@@ -50,7 +50,7 @@ export function usePlan(userId: string | undefined) {
         ...userPlanDoc.data(),
         createdAt: userPlanDoc.data().createdAt?.toDate(),
         updatedAt: userPlanDoc.data().updatedAt?.toDate(),
-        expiresAt: userPlanDoc.data().expiresAt?.toDate() || null
+        lastSearchAt: userPlanDoc.data().lastSearchAt?.toDate() || null
       } as UserPlan
 
       setUserPlan(userPlanData)
