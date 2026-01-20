@@ -175,11 +175,11 @@ export async function pollSearchStatus(
     poll()
     const interval = setInterval(poll, intervalMs)
     
-    // Set overall timeout (15 minutes)
+    // Set overall timeout (90 minutes for WIPO searches)
     setTimeout(() => {
       clearInterval(interval)
-      reject(new Error('Search timeout - job took longer than 15 minutes'))
-    }, 15 * 60 * 1000)
+      reject(new Error('Search timeout - job took longer than 90 minutes'))
+    }, 90 * 60 * 1000)
   })
 }
 
