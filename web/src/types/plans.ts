@@ -1,101 +1,134 @@
 /**
- * Types for Plans and Subscriptions System
+ * Types for Plans and Subscriptions System - FINAL VERSION
  */
+
+export type OrganizationType = 'company' | 'individual'
+export type SubscriptionStatus = 'active' | 'paused' | 'expired' | 'cancelled' | 'trial'
+export type UserRole = 'admin' | 'member'
 
 export interface Plan {
   id: string
   name: string
-  price: number // em reais
-  searches: number // consultas por usuário
-  maxUsers: number // número máximo de usuários
+  description: string
+  price: number // em reais (mensal)
+  searchesPerUser: number
+  maxUsers: number
   features: string[]
   isActive: boolean
+  isTrial?: boolean
+  trialDays?: number
   createdAt: Date
   updatedAt: Date
 }
 
-export interface UserPlan {
-  userId: string
-  planId: string
-  role: 'admin' | 'member' // admin pode adicionar membros
-  searchesUsed: number
-  searchesLimit: number
-  status: 'active' | 'expired' | 'blocked'
+export interface Organization {
+  id: string
+  name: string
+  type: OrganizationType
+  cnpj?: string | null
+  email: string
+  phone?: string | null
+  userId?: string | null
+  status: 'active' | 'inactive'
   createdAt: Date
   updatedAt: Date
-  expiresAt: Date | null
+  createdBy: string
 }
 
-export interface PlanMembership {
+export interface Subscription {
+  id: string
+  organizationId: string
+  organizationName: string
   planId: string
-  adminUserId: string // quem criou/gerencia o plano
-  memberUserIds: string[] // lista de membros
-  totalSearches: number // total usado por todos
+  planName: string
+  maxUsers: number
+  searchesPerUser: number
+  totalSearchesLimit: number
+  currentUsers: number
+  totalSearchesUsed: number
+  startDate: Date
+  endDate: Date
+  status: SubscriptionStatus
+  isTrial: boolean
+  autoRenew: boolean
+  renewalNotificationSent: boolean
+  monthlyPrice: number
   createdAt: Date
   updatedAt: Date
+  createdBy: string
+}
+
+export interface Invoice {
+  id: string
+  subscriptionId: string
+  number: string
+  amount: number
+  issueDate: Date
+  fileUrl: string
+  fileName: string
+  status: 'pending' | 'paid'
+  uploadedAt: Date
+  uploadedBy: string
+}
+
+export interface RenewalAlert {
+  id: string
+  subscriptionId: string
+  organizationName: string
+  planName: string
+  expiresAt: Date
+  daysUntilExpiry: number
+  status: 'pending' | 'resolved'
+  invoiceUploaded: boolean
+  createdAt: Date
 }
 
 export const DEFAULT_PLANS: Omit<Plan, 'id' | 'createdAt' | 'updatedAt'>[] = [
   {
     name: 'Básico',
+    description: 'Plano gratuito vitalício',
     price: 0,
-    searches: 1,
+    searchesPerUser: 1,
     maxUsers: 1,
-    features: [
-      '1 consulta de patentes',
-      '1 usuário',
-      'Busca básica',
-      'Resultados limitados'
-    ],
+    features: ['1 consulta vitalícia', '1 usuário'],
     isActive: true
   },
   {
+    name: 'Teste',
+    description: 'Teste de 15 dias',
+    price: 0,
+    searchesPerUser: 30,
+    maxUsers: 3,
+    features: ['30 consultas/usuário', '3 usuários', '15 dias'],
+    isActive: true,
+    isTrial: true,
+    trialDays: 15
+  },
+  {
     name: 'Essencial',
+    description: 'Para profissionais',
     price: 3500,
-    searches: 10,
+    searchesPerUser: 10,
     maxUsers: 1,
-    features: [
-      '10 consultas de patentes',
-      '1 usuário',
-      'Busca avançada',
-      'Resultados completos',
-      'Histórico de buscas',
-      'Dr. Root AI Assistant'
-    ],
+    features: ['10 consultas/mês', '1 usuário'],
     isActive: true
   },
   {
     name: 'Profissional',
+    description: 'Para equipes',
     price: 7000,
-    searches: 25,
+    searchesPerUser: 25,
     maxUsers: 3,
-    features: [
-      '25 consultas por usuário',
-      'Até 3 usuários',
-      'Busca avançada',
-      'Análise FTO completa',
-      'Histórico ilimitado',
-      'Dr. Root AI Assistant',
-      'Exportação de relatórios',
-      'Suporte prioritário'
-    ],
+    features: ['25 consultas/mês', '3 usuários'],
     isActive: true
   },
   {
     name: 'Enterprise',
+    description: 'Para empresas',
     price: 15000,
-    searches: 150,
+    searchesPerUser: 150,
     maxUsers: 15,
-    features: [
-      '150 consultas por usuário',
-      'Até 15 usuários',
-      'Todas as funcionalidades',
-      'API dedicada',
-      'Suporte 24/7',
-      'Treinamento da equipe',
-      'Customizações',
-      'SLA garantido'
-    ],
+    features: ['150 consultas/mês', '15 usuários'],
     isActive: true
   }
 ]
