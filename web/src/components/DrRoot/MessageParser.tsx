@@ -110,13 +110,13 @@ export function MessageParser({ content, onAction }: MessageParserProps) {
           return (
             <Button
               key={index}
-              variant="link"
+              variant="outline"
               size="sm"
-              className="h-auto p-0 text-teal-600 hover:text-teal-700 font-medium inline-flex items-center gap-1"
+              className="mt-2 mb-2 mr-2 inline-flex items-center gap-2 bg-teal-50 hover:bg-teal-100 border-teal-200 text-teal-700 hover:text-teal-800 font-medium shadow-sm"
               onClick={() => onAction?.(part.action)}
             >
               {part.content}
-              {Icon && <Icon className="h-3 w-3" />}
+              {Icon && <Icon className="h-4 w-4" />}
             </Button>
           )
         }

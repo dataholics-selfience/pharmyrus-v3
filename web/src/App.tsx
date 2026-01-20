@@ -10,6 +10,8 @@ import { SearchPage } from '@/pages/Search'
 import { ResultsPage } from '@/pages/Results'
 import { ResultsScientificPage } from '@/pages/ResultsScientific'
 import { DashboardPage } from '@/pages/Dashboard'
+import { AdminLoginPage } from '@/pages/AdminLogin'
+import { AdminDashboardPage } from '@/pages/AdminDashboard'
 
 // Components
 import { ProtectedRoute } from '@/components/ProtectedRoute'
@@ -60,6 +62,17 @@ function App() {
               element={
                 <ProtectedRoute requireAuth={false}>
                   <SignupPage />
+                </ProtectedRoute>
+              } 
+            />
+            
+            {/* Admin routes */}
+            <Route path="/admin/login" element={<AdminLoginPage />} />
+            <Route 
+              path="/admin/dashboard" 
+              element={
+                <ProtectedRoute>
+                  <AdminDashboardPage />
                 </ProtectedRoute>
               } 
             />
