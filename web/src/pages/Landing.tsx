@@ -1,19 +1,22 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Shield, Loader2 } from 'lucide-react'
+import { Search, Shield, Loader2, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { CountryMultiSelect } from '@/components/CountryMultiSelect'
 import { SearchHistoryGrid } from '@/components/SearchHistoryGrid'
 import { ValidationConfirmDialog } from '@/components/ValidationConfirmDialog'
+import { SearchLimitReached } from '@/components/SearchLimitReached'
 import { useAuth } from '@/hooks/useAuth'
 import { useInputValidation } from '@/hooks/useInputValidation'
+import { usePlan } from '@/hooks/usePlan'
 
 export function LandingPage() {
   const navigate = useNavigate()
   const { user, signOut } = useAuth()
   const { validateInputs, loading: validating } = useInputValidation()
+  const { plan, canSearch, remainingSearches, usagePercentage, loading: planLoading } = usePlan(user?.uid)
   
   const [molecule, setMolecule] = useState('')
   const [brand, setBrand] = useState('')
@@ -22,6 +25,15 @@ export function LandingPage() {
   // Validation dialog state
   const [showValidationDialog, setShowValidationDialog] = useState(false)
   const [validationResult, setValidationResult] = useState<any>(null)
+
+  // Show limit reached screen if user has plan but can't search
+  if (user && !planLoading && plan && !canSearch) {
+    return <SearchLimitReached 
+      plan={plan} 
+      searchesUsed={plan.searches - remainingSearches}
+      searchesLimit={plan.searches}
+    />
+  }
 
   // Carregar campos salvos do localStorage ao montar componente
   useEffect(() => {
@@ -165,7 +177,32 @@ export function LandingPage() {
           <div className="flex items-center gap-4">
             {user ? (
               <>
-                <span className="text-sm text-muted-foreground">
+                {/* Usage Indicator */}
+                {!planLoading && plan && (
+                  <div className="hidden md:flex items-center gap-2 text-sm">
+                    <div className="text-muted-foreground">
+                      Consultas: 
+                      <span className={`ml-1 font-semibold ${
+                        remainingSearches === 0 ? 'text-red-600' :
+                        remainingSearches <= 2 ? 'text-amber-600' :
+                        'text-green-600'
+                      }`}>
+                        {remainingSearches}
+                      </span>
+                      <span className="text-muted-foreground">/{plan.searches}</span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => navigate('/plans')}
+                      className="h-7 text-xs"
+                    >
+                      {plan.price === 0 ? 'Fazer Upgrade' : 'Ver Plano'}
+                    </Button>
+                  </div>
+                )}
+                
+                <span className="text-sm text-muted-foreground hidden sm:block">
                   Olá, <span className="font-medium text-foreground">{user.displayName || user.email}</span>
                 </span>
                 
