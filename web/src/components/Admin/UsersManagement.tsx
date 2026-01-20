@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react'
-import { collection, getDocs, query, orderBy } from 'firebase/firestore'
+import { collection, getDocs, query, orderBy, updateDoc, doc, deleteDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Users, Loader2, Search, Crown } from 'lucide-react'
+import { Label } from '@/components/ui/label'
+import { Button } from '@/components/ui/button'
+import { Users, Loader2, Search, Crown, Edit, Trash2, Save, X } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface UserData {
   uid: string
@@ -12,6 +15,7 @@ interface UserData {
   displayName?: string
   organizationId?: string
   planName?: string
+  planId?: string
   searchesUsed?: number
   searchesLimit?: number
   status?: string
@@ -20,15 +24,26 @@ interface UserData {
 
 export function UsersManagement() {
   const [users, setUsers] = useState<UserData[]>([])
+  const [plans, setPlans] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+  const [editingUser, setEditingUser] = useState<UserData | null>(null)
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    loadUsers()
+    loadData()
   }, [])
 
-  const loadUsers = async () => {
+  const loadData = async () => {
     try {
+      // Buscar planos
+      const plansSnapshot = await getDocs(collection(db, 'plans'))
+      const plansData = plansSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+      setPlans(plansData)
+
       // Buscar usuários
       const usersSnapshot = await getDocs(collection(db, 'users'))
       const usersData: UserData[] = []
@@ -50,6 +65,7 @@ export function UsersManagement() {
           displayName: userData.displayName,
           organizationId: userPlan?.data().organizationId,
           planName: userPlan?.data().planName || 'Sem plano',
+          planId: userPlan?.data().planId,
           searchesUsed: userPlan?.data().searchesUsed || 0,
           searchesLimit: userPlan?.data().searchesLimit || 0,
           status: userPlan?.data().status || 'unknown',
@@ -68,6 +84,58 @@ export function UsersManagement() {
       console.error('Error loading users:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleEdit = (user: UserData) => {
+    setEditingUser({ ...user })
+  }
+
+  const handleSave = async () => {
+    if (!editingUser) return
+
+    setSaving(true)
+    try {
+      // Atualizar userPlan
+      await updateDoc(doc(db, 'userPlans', editingUser.uid), {
+        planId: editingUser.planId,
+        planName: plans.find(p => p.id === editingUser.planId)?.name || editingUser.planName,
+        searchesLimit: editingUser.searchesLimit,
+        searchesUsed: editingUser.searchesUsed,
+        updatedAt: new Date()
+      })
+
+      // Atualizar user (displayName)
+      await updateDoc(doc(db, 'users', editingUser.uid), {
+        displayName: editingUser.displayName
+      })
+
+      toast.success('Usuário atualizado!')
+      setEditingUser(null)
+      await loadData()
+    } catch (error) {
+      console.error('Error updating user:', error)
+      toast.error('Erro ao salvar usuário')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async (userId: string, email: string) => {
+    if (!confirm(`Tem certeza que deseja deletar ${email}?`)) return
+
+    try {
+      // Deletar userPlan
+      await deleteDoc(doc(db, 'userPlans', userId))
+      
+      // Deletar user
+      await deleteDoc(doc(db, 'users', userId))
+
+      toast.success('Usuário deletado')
+      await loadData()
+    } catch (error) {
+      console.error('Error deleting user:', error)
+      toast.error('Erro ao deletar usuário')
     }
   }
 
@@ -147,31 +215,51 @@ export function UsersManagement() {
                           </div>
                         </div>
 
-                        <div className="text-right">
-                          <div className="text-sm mb-2">
-                            <span className={`font-bold ${
-                              usagePercent >= 80 ? 'text-red-600' :
-                              usagePercent >= 50 ? 'text-amber-600' :
-                              'text-green-600'
-                            }`}>
-                              {user.searchesUsed}
-                            </span>
-                            <span className="text-muted-foreground">
-                              {' '}/ {user.searchesLimit === 999999 ? '∞' : user.searchesLimit}
-                            </span>
-                          </div>
-                          
-                          {user.searchesLimit !== 999999 && (
-                            <div className="w-32 bg-gray-200 rounded-full h-2">
-                              <div
-                                className={`h-2 rounded-full ${
-                                  usagePercent >= 80 ? 'bg-red-500' :
-                                  usagePercent >= 50 ? 'bg-amber-500' :
-                                  'bg-green-500'
-                                }`}
-                                style={{ width: `${Math.min(usagePercent, 100)}%` }}
-                              />
+                        <div className="flex items-center gap-2">
+                          <div className="text-right mr-4">
+                            <div className="text-sm mb-2">
+                              <span className={`font-bold ${
+                                usagePercent >= 80 ? 'text-red-600' :
+                                usagePercent >= 50 ? 'text-amber-600' :
+                                'text-green-600'
+                              }`}>
+                                {user.searchesUsed}
+                              </span>
+                              <span className="text-muted-foreground">
+                                {' '}/ {user.searchesLimit === 999999 ? '∞' : user.searchesLimit}
+                              </span>
                             </div>
+                            
+                            {user.searchesLimit !== 999999 && (
+                              <div className="w-32 bg-gray-200 rounded-full h-2">
+                                <div
+                                  className={`h-2 rounded-full ${
+                                    usagePercent >= 80 ? 'bg-red-500' :
+                                    usagePercent >= 50 ? 'bg-amber-500' :
+                                    'bg-green-500'
+                                  }`}
+                                  style={{ width: `${Math.min(usagePercent, 100)}%` }}
+                                />
+                              </div>
+                            )}
+                          </div>
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEdit(user)}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          
+                          {!isAdmin && (
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleDelete(user.uid, user.email)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
                           )}
                         </div>
                       </div>
@@ -183,6 +271,97 @@ export function UsersManagement() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Edit Dialog */}
+      {editingUser && (
+        <Card className="border-2 border-primary">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Editando: {editingUser.email}</CardTitle>
+                <CardDescription>Altere os dados do usuário</CardDescription>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setEditingUser(null)}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Nome</Label>
+                <Input
+                  value={editingUser.displayName || ''}
+                  onChange={(e) => setEditingUser({ ...editingUser, displayName: e.target.value })}
+                  placeholder="Nome do usuário"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Plano</Label>
+                <select
+                  className="w-full border rounded-md px-3 py-2"
+                  value={editingUser.planId}
+                  onChange={(e) => setEditingUser({ ...editingUser, planId: e.target.value })}
+                >
+                  {plans.map(plan => (
+                    <option key={plan.id} value={plan.id}>
+                      {plan.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Limite de Consultas</Label>
+                <Input
+                  type="number"
+                  value={editingUser.searchesLimit}
+                  onChange={(e) => setEditingUser({ ...editingUser, searchesLimit: Number(e.target.value) })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Consultas Usadas</Label>
+                <Input
+                  type="number"
+                  value={editingUser.searchesUsed}
+                  onChange={(e) => setEditingUser({ ...editingUser, searchesUsed: Number(e.target.value) })}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <Button
+                variant="outline"
+                onClick={() => setEditingUser(null)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleSave}
+                disabled={saving}
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    Salvar Alterações
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

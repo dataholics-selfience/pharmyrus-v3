@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { collection, getDocs, updateDoc, doc } from 'firebase/firestore'
+import { collection, getDocs, updateDoc, doc, addDoc, deleteDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { Plan } from '@/types/plans'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { Package, Save, Loader2, CheckCircle2 } from 'lucide-react'
+import { Package, Save, Loader2, Plus, X, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 export function PlansManagement() {
@@ -16,6 +16,16 @@ export function PlansManagement() {
   const [loading, setLoading] = useState(true)
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null)
   const [saving, setSaving] = useState(false)
+  const [creatingNew, setCreatingNew] = useState(false)
+  const [newPlan, setNewPlan] = useState({
+    name: '',
+    description: '',
+    price: 0,
+    searchesPerUser: 1,
+    maxUsers: 1,
+    features: [''],
+    isActive: true
+  })
 
   useEffect(() => {
     loadPlans()
@@ -72,6 +82,56 @@ export function PlansManagement() {
     }
   }
 
+  const handleCreateNew = async () => {
+    if (!newPlan.name || !newPlan.description) {
+      toast.error('Preencha nome e descrição')
+      return
+    }
+
+    setSaving(true)
+    try {
+      const planId = newPlan.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '_')
+      
+      await addDoc(collection(db, 'plans'), {
+        ...newPlan,
+        id: planId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+
+      toast.success('Plano criado com sucesso!')
+      setCreatingNew(false)
+      setNewPlan({
+        name: '',
+        description: '',
+        price: 0,
+        searchesPerUser: 1,
+        maxUsers: 1,
+        features: [''],
+        isActive: true
+      })
+      await loadPlans()
+    } catch (error) {
+      console.error('Error creating plan:', error)
+      toast.error('Erro ao criar plano')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async (planId: string) => {
+    if (!confirm('Tem certeza que deseja deletar este plano?')) return
+
+    try {
+      await deleteDoc(doc(db, 'plans', planId))
+      toast.success('Plano deletado')
+      await loadPlans()
+    } catch (error) {
+      console.error('Error deleting plan:', error)
+      toast.error('Erro ao deletar plano')
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -84,67 +144,187 @@ export function PlansManagement() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Gestão de Planos</CardTitle>
-          <CardDescription>
-            {plans.length} plano(s) cadastrado(s)
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Gestão de Planos</CardTitle>
+              <CardDescription>
+                {plans.length} plano(s) cadastrado(s)
+              </CardDescription>
+            </div>
+            <Button onClick={() => setCreatingNew(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Novo Plano
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {plans.map((plan) => (
-              <Card key={plan.id} className="border-2">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle className="flex items-center gap-2">
-                        {plan.name}
-                        {!plan.isActive && <Badge variant="secondary">Inativo</Badge>}
-                        {plan.isTrial && <Badge variant="outline">Trial</Badge>}
-                      </CardTitle>
-                      <CardDescription>{plan.description}</CardDescription>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEdit(plan)}
-                    >
-                      Editar
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div>
-                      <div className="text-muted-foreground">Preço</div>
-                      <div className="font-semibold">
-                        {plan.price === 0 ? 'Grátis' : `R$ ${plan.price.toLocaleString('pt-BR')}`}
+          {plans.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Package className="w-16 h-16 mx-auto mb-4 opacity-30" />
+              <p className="text-lg font-medium mb-2">Nenhum plano cadastrado</p>
+              <p className="text-sm mb-4">Crie o primeiro plano clicando no botão acima</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {plans.map((plan) => (
+                <Card key={plan.id} className="border-2">
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <CardTitle className="flex items-center gap-2">
+                          {plan.name}
+                          {!plan.isActive && <Badge variant="secondary">Inativo</Badge>}
+                          {plan.isTrial && <Badge variant="outline">Trial</Badge>}
+                        </CardTitle>
+                        <CardDescription>{plan.description}</CardDescription>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEdit(plan)}
+                        >
+                          Editar
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleDelete(plan.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
                     </div>
-                    <div>
-                      <div className="text-muted-foreground">Consultas/Usuário</div>
-                      <div className="font-semibold">{plan.searchesPerUser}</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground">Máx. Usuários</div>
-                      <div className="font-semibold">{plan.maxUsers}</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground">Status</div>
-                      <div className="font-semibold">
-                        {plan.isActive ? (
-                          <span className="text-green-600">Ativo</span>
-                        ) : (
-                          <span className="text-gray-500">Inativo</span>
-                        )}
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div>
+                        <div className="text-muted-foreground">Preço</div>
+                        <div className="font-semibold">
+                          {plan.price === 0 ? 'Grátis' : `R$ ${plan.price.toLocaleString('pt-BR')}`}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">Consultas/Usuário</div>
+                        <div className="font-semibold">{plan.searchesPerUser}</div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">Máx. Usuários</div>
+                        <div className="font-semibold">{plan.maxUsers}</div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">Status</div>
+                        <div className="font-semibold">
+                          {plan.isActive ? (
+                            <span className="text-green-600">Ativo</span>
+                          ) : (
+                            <span className="text-gray-500">Inativo</span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      {/* Create New Dialog */}
+      {creatingNew && (
+        <Card className="border-2 border-green-500">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Criar Novo Plano</CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setCreatingNew(false)}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Nome do Plano *</Label>
+                <Input
+                  value={newPlan.name}
+                  onChange={(e) => setNewPlan({ ...newPlan, name: e.target.value })}
+                  placeholder="Ex: Básico"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Preço Mensal (R$) *</Label>
+                <Input
+                  type="number"
+                  value={newPlan.price}
+                  onChange={(e) => setNewPlan({ ...newPlan, price: Number(e.target.value) })}
+                  placeholder="0"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Consultas por Usuário *</Label>
+                <Input
+                  type="number"
+                  value={newPlan.searchesPerUser}
+                  onChange={(e) => setNewPlan({ ...newPlan, searchesPerUser: Number(e.target.value) })}
+                  placeholder="1"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Máximo de Usuários *</Label>
+                <Input
+                  type="number"
+                  value={newPlan.maxUsers}
+                  onChange={(e) => setNewPlan({ ...newPlan, maxUsers: Number(e.target.value) })}
+                  placeholder="1"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Descrição *</Label>
+              <Textarea
+                value={newPlan.description}
+                onChange={(e) => setNewPlan({ ...newPlan, description: e.target.value })}
+                rows={3}
+                placeholder="Descrição do plano..."
+              />
+            </div>
+
+            <div className="flex items-center gap-4">
+              <Button
+                variant="outline"
+                onClick={() => setCreatingNew(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleCreateNew}
+                disabled={saving}
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Criando...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Criar Plano
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Edit Dialog */}
       {editingPlan && (
