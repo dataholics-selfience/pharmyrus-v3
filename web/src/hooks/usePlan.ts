@@ -98,14 +98,17 @@ export function usePlan(userId: string | undefined) {
       // Criar user plan
       const userPlanData: UserPlan = {
         userId: uid,
+        organizationId: `org_user_${uid}`,
+        organizationType: 'individual',
+        subscriptionId: null,
         planId: basicPlan.id,
+        planName: basicPlan.data().name,
         role: 'admin',
         searchesUsed: 0,
-        searchesLimit: basicPlan.data().searches,
+        searchesLimit: basicPlan.data().searchesPerUser,
         status: 'active',
         createdAt: new Date(),
-        updatedAt: new Date(),
-        expiresAt: null // Plano gratuito não expira
+        updatedAt: new Date()
       }
 
       await setDoc(doc(db, 'userPlans', uid), {

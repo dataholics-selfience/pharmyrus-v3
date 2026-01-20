@@ -30,8 +30,8 @@ export function LandingPage() {
   if (user && !planLoading && plan && !canSearch) {
     return <SearchLimitReached 
       plan={plan} 
-      searchesUsed={plan.searches - remainingSearches}
-      searchesLimit={plan.searches}
+      searchesUsed={plan.searchesPerUser - remainingSearches}
+      searchesLimit={plan.searchesPerUser}
     />
   }
 
@@ -189,7 +189,7 @@ export function LandingPage() {
                       }`}>
                         {remainingSearches}
                       </span>
-                      <span className="text-muted-foreground">/{plan.searches}</span>
+                      <span className="text-muted-foreground">/{plan.searchesPerUser}</span>
                     </div>
                     <Button
                       variant="ghost"

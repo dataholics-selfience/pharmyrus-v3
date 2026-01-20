@@ -58,6 +58,22 @@ export interface Subscription {
   createdBy: string
 }
 
+export interface UserPlan {
+  userId: string
+  organizationId: string
+  organizationType: OrganizationType
+  subscriptionId: string | null
+  planId: string
+  planName: string
+  role: UserRole
+  searchesUsed: number
+  searchesLimit: number
+  status: 'active' | 'blocked' | 'expired'
+  createdAt: Date
+  updatedAt: Date
+  lastSearchAt?: Date | null
+}
+
 export interface Invoice {
   id: string
   subscriptionId: string

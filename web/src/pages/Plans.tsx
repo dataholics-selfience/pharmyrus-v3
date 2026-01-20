@@ -139,7 +139,7 @@ export function PlansPage() {
                     <CardDescription>
                       <div className="space-y-1">
                         <div className="font-semibold text-foreground">
-                          {plan.searches} consultas/usuário
+                          {plan.searchesPerUser} consultas/usuário
                         </div>
                         <div className="text-sm">
                           Até {plan.maxUsers} {plan.maxUsers === 1 ? 'usuário' : 'usuários'}
