@@ -103,15 +103,41 @@ export function UsersManagement() {
   }
 
   const handleCreateUser = async () => {
+    // Validações
     if (!newUser.email || !newUser.password) {
       toast.error('Email e senha são obrigatórios')
       return
     }
 
+    // Validar formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(newUser.email)) {
+      toast.error('Email inválido. Use formato: usuario@exemplo.com')
+      return
+    }
+
+    if (newUser.password.length < 6) {
+      toast.error('Senha deve ter no mínimo 6 caracteres')
+      return
+    }
+
+    if (!newUser.subscriptionId) {
+      toast.error('Selecione uma assinatura')
+      return
+    }
+
+    console.log('📝 Criando usuário:', {
+      email: newUser.email,
+      displayName: newUser.displayName,
+      subscriptionId: newUser.subscriptionId
+    })
+
     setSaving(true)
     try {
+      console.log('🔐 Criando no Firebase Auth...')
       const userCredential = await createUserWithEmailAndPassword(auth, newUser.email, newUser.password)
       const uid = userCredential.user.uid
+      console.log(`✅ Usuário criado no Auth: ${uid}`)
 
       let planId = newUser.planId
       let organizationId = `org_user_${uid}`
@@ -122,19 +148,24 @@ export function UsersManagement() {
         if (sub) {
           planId = sub.planId
           organizationId = sub.organizationId
+          console.log(`📋 Usando assinatura: ${sub.organizationName} - ${sub.planName}`)
         }
       }
 
       const selectedPlan = plans.find(p => p.id === planId)
+      console.log(`📦 Plano selecionado: ${selectedPlan?.name}`)
 
+      console.log('💾 Criando documento user...')
       await setDoc(doc(db, 'users', uid), {
         email: newUser.email,
         displayName: newUser.displayName || newUser.email,
         createdAt: new Date(),
         updatedAt: new Date()
       })
+      console.log('✅ Documento user criado')
 
       if (!subscriptionId) {
+        console.log('🏢 Criando organização individual...')
         await setDoc(doc(db, 'organizations', organizationId), {
           id: organizationId,
           name: newUser.displayName || newUser.email,
@@ -146,8 +177,10 @@ export function UsersManagement() {
           updatedAt: new Date(),
           createdBy: 'admin'
         })
+        console.log('✅ Organização criada')
       }
 
+      console.log('📊 Criando userPlan...')
       await setDoc(doc(db, 'userPlans', uid), {
         userId: uid,
         organizationId,
@@ -162,23 +195,36 @@ export function UsersManagement() {
         createdAt: new Date(),
         updatedAt: new Date()
       })
+      console.log('✅ userPlan criado')
 
       if (subscriptionId) {
+        console.log('📈 Atualizando contador de assinatura...')
         const sub = subscriptions.find(s => s.id === subscriptionId)
         await updateDoc(doc(db, 'subscriptions', subscriptionId), {
           currentUsers: (sub?.currentUsers || 0) + 1,
           updatedAt: new Date()
         })
+        console.log(`✅ Contador atualizado: ${(sub?.currentUsers || 0) + 1}/${sub?.maxUsers}`)
       }
 
       toast.success('Usuário criado com sucesso!')
       setCreatingUser(false)
       setNewUser({ email: '', password: '', displayName: '', subscriptionId: '', planId: 'basico' })
+      
+      console.log('🔄 Recarregando lista...')
       await loadData()
+      console.log('✅ Tudo pronto!')
     } catch (error: any) {
-      console.error('Error creating user:', error)
+      console.error('❌ Error creating user:', error)
+      console.error('Código:', error.code)
+      console.error('Mensagem:', error.message)
+      
       if (error.code === 'auth/email-already-in-use') {
         toast.error('Email já está em uso')
+      } else if (error.code === 'auth/invalid-email') {
+        toast.error('Email inválido')
+      } else if (error.code === 'auth/weak-password') {
+        toast.error('Senha muito fraca (mínimo 6 caracteres)')
       } else {
         toast.error('Erro ao criar usuário: ' + error.message)
       }
@@ -240,23 +286,32 @@ export function UsersManagement() {
   }
 
   const handleDelete = async (userId: string, email: string) => {
-    if (!confirm(`Tem certeza que deseja deletar ${email}?\n\nIsso removerá o usuário do Firebase Auth e do Firestore.`)) return
+    if (!confirm(`Tem certeza que deseja deletar ${email}?\n\nIsso removerá o usuário do Firestore.`)) return
 
+    console.log(`🗑️ Deletando usuário: ${userId} (${email})`)
+    
     try {
-      // Deletar do Firestore primeiro
+      // Deletar userPlan
+      console.log(`Deletando userPlan: ${userId}`)
       await deleteDoc(doc(db, 'userPlans', userId))
-      await deleteDoc(doc(db, 'users', userId))
-
-      // NOTA: Deletar do Firebase Auth requer privilégios admin
-      // Por enquanto, apenas remove do Firestore
-      // Para deletar do Auth, usar Firebase Admin SDK no backend
+      console.log(`✅ userPlan deletado`)
       
-      toast.success('Usuário removido do Firestore')
-      toast.info('Nota: Remova também do Firebase Auth Console se necessário')
+      // Deletar user
+      console.log(`Deletando user: ${userId}`)
+      await deleteDoc(doc(db, 'users', userId))
+      console.log(`✅ user deletado`)
+
+      toast.success('Usuário removido do Firestore!')
+      toast.info('Nota: Remova também do Firebase Auth Console')
+      
+      console.log(`Recarregando lista de usuários...`)
       await loadData()
-    } catch (error) {
-      console.error('Error deleting user:', error)
-      toast.error('Erro ao deletar usuário')
+      console.log(`✅ Lista recarregada`)
+    } catch (error: any) {
+      console.error('❌ Error deleting user:', error)
+      console.error('Código do erro:', error.code)
+      console.error('Mensagem:', error.message)
+      toast.error(`Erro ao deletar: ${error.message}`)
     }
   }
 

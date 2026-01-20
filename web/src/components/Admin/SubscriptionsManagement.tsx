@@ -30,13 +30,15 @@ export function SubscriptionsManagement() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
   const [organizations, setOrganizations] = useState<any[]>([])
   const [plans, setPlans] = useState<any[]>([])
+  const [users, setUsers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [creatingNew, setCreatingNew] = useState(false)
   const [saving, setSaving] = useState(false)
   const [newSub, setNewSub] = useState({
     organizationId: '',
     planId: '',
-    durationMonths: 1
+    durationMonths: 1,
+    userIds: [] as string[]
   })
 
   useEffect(() => {
@@ -54,6 +56,15 @@ export function SubscriptionsManagement() {
       const plansSnapshot = await getDocs(collection(db, 'plans'))
       const plansData = plansSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
       setPlans(plansData)
+
+      // Load users
+      const usersSnapshot = await getDocs(collection(db, 'users'))
+      const usersData = usersSnapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        email: doc.data().email,
+        displayName: doc.data().displayName
+      }))
+      setUsers(usersData)
 
       // Load subscriptions
       const subsSnapshot = await getDocs(collection(db, 'subscriptions'))
@@ -83,6 +94,8 @@ export function SubscriptionsManagement() {
       return
     }
 
+    console.log('📝 Criando assinatura:', newSub)
+
     setSaving(true)
     try {
       const org = organizations.find(o => o.id === newSub.organizationId)
@@ -92,7 +105,8 @@ export function SubscriptionsManagement() {
       const endDate = new Date()
       endDate.setMonth(endDate.getMonth() + newSub.durationMonths)
 
-      await addDoc(collection(db, 'subscriptions'), {
+      console.log('💾 Salvando assinatura no Firestore...')
+      const subRef = await addDoc(collection(db, 'subscriptions'), {
         organizationId: org.id,
         organizationName: org.name,
         planId: plan.id,
@@ -104,7 +118,7 @@ export function SubscriptionsManagement() {
         maxUsers: plan.maxUsers,
         searchesPerUser: plan.searchesPerUser,
         totalSearchesLimit: plan.maxUsers * plan.searchesPerUser,
-        currentUsers: 0,
+        currentUsers: newSub.userIds.length,
         totalSearchesUsed: 0,
         isTrial: false,
         autoRenew: false,
@@ -114,9 +128,42 @@ export function SubscriptionsManagement() {
         createdBy: 'admin'
       })
 
-      toast.success('Assinatura criada!')
+      console.log(`✅ Assinatura criada: ${subRef.id}`)
+
+      // Vincular usuários selecionados
+      if (newSub.userIds.length > 0) {
+        console.log(`👥 Vinculando ${newSub.userIds.length} usuário(s)...`)
+        
+        for (const userId of newSub.userIds) {
+          console.log(`  Vinculando usuário: ${userId}`)
+          await updateDoc(doc(db, 'userPlans', userId), {
+            subscriptionId: subRef.id,
+            organizationId: org.id,
+            organizationType: 'company',
+            planId: plan.id,
+            planName: plan.name,
+            searchesLimit: plan.searchesPerUser,
+            updatedAt: new Date()
+          })
+          console.log(`  ✅ Usuário ${userId} vinculado`)
+        }
+        
+        console.log(`✅ Todos os usuários vinculados!`)
+        toast.success(`Assinatura criada com ${newSub.userIds.length} usuário(s)!`)
+      } else {
+        toast.success('Assinatura criada!')
+      }
+
       setCreatingNew(false)
-      setNewSub({ organizationId: '', planId: '', durationMonths: 1 })
+      setNewSub({ organizationId: '', planId: '', durationMonths: 1, userIds: [] })
+      await loadData()
+    } catch (error) {
+      console.error('❌ Error creating subscription:', error)
+      toast.error('Erro ao criar assinatura')
+    } finally {
+      setSaving(false)
+    }
+  }
       await loadData()
     } catch (error) {
       console.error('Error creating subscription:', error)
@@ -362,6 +409,41 @@ export function SubscriptionsManagement() {
               />
             </div>
 
+            <div className="space-y-2">
+              <Label>Vincular Usuários (opcional)</Label>
+              <div className="border rounded-md p-3 max-h-40 overflow-y-auto space-y-2">
+                {users.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nenhum usuário disponível</p>
+                ) : (
+                  users.map(user => (
+                    <label key={user.id} className="flex items-center gap-2 cursor-pointer hover:bg-muted p-2 rounded">
+                      <input
+                        type="checkbox"
+                        checked={newSub.userIds.includes(user.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setNewSub({ ...newSub, userIds: [...newSub.userIds, user.id] })
+                          } else {
+                            setNewSub({ ...newSub, userIds: newSub.userIds.filter(id => id !== user.id) })
+                          }
+                        }}
+                        className="w-4 h-4"
+                      />
+                      <span className="text-sm">
+                        {user.displayName || user.email}
+                        <span className="text-xs text-muted-foreground ml-2">({user.email})</span>
+                      </span>
+                    </label>
+                  ))
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {newSub.userIds.length > 0 
+                  ? `${newSub.userIds.length} usuário(s) selecionado(s)`
+                  : 'Nenhum usuário selecionado - você pode adicionar depois'}
+              </p>
+            </div>
+
             {newSub.planId && (
               <div className="p-3 bg-muted rounded-md text-sm">
                 <div className="font-medium mb-1">Resumo:</div>
@@ -369,6 +451,13 @@ export function SubscriptionsManagement() {
                 <div>Preço: R$ {plans.find(p => p.id === newSub.planId)?.price}/mês</div>
                 <div>Usuários: até {plans.find(p => p.id === newSub.planId)?.maxUsers}</div>
                 <div>Consultas: {plans.find(p => p.id === newSub.planId)?.searchesPerUser}/usuário</div>
+                {newSub.userIds.length > 0 && (
+                  <div className="mt-2 pt-2 border-t">
+                    <div className="text-green-600 font-medium">
+                      ✓ {newSub.userIds.length} usuário(s) serão vinculados
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -377,7 +466,7 @@ export function SubscriptionsManagement() {
                 variant="outline"
                 onClick={() => {
                   setCreatingNew(false)
-                  setNewSub({ organizationId: '', planId: '', durationMonths: 1 })
+                  setNewSub({ organizationId: '', planId: '', durationMonths: 1, userIds: [] })
                 }}
                 className="flex-1"
               >
