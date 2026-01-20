@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, Link } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -30,7 +30,16 @@ export function SearchPage() {
   const brand = location.state?.brand
   const countries = location.state?.countries || ['BR']
 
+  // Flag para evitar múltiplas execuções
+  const [searchExecuted, setSearchExecuted] = useState(false)
+
   useEffect(() => {
+    // Prevenir múltiplas execuções
+    if (searchExecuted) {
+      console.log('⚠️ Busca já foi executada, ignorando...')
+      return
+    }
+
     // Apenas verificar se tem molécula
     if (!molecule) {
       console.log('⚠️ No molecule provided')
@@ -38,23 +47,39 @@ export function SearchPage() {
       return
     }
 
+    console.log('🚀 Iniciando busca ÚNICA para:', molecule)
+    setSearchExecuted(true)
+
     // Start search automatically
     const startSearchAsync = async () => {
       try {
+        console.log('📞 Chamando executeSearch...')
         const result = await executeSearch({ molecule, brand, countries })
         
-        // Save to history (Phase 6)
-        await saveToHistory(result)
+        console.log('✅ executeSearch retornou:', result ? 'COM resultado' : 'SEM resultado')
+        
+        if (!result) {
+          console.error('❌ Resultado vazio!')
+          return
+        }
+        
+        // NOTA: Não salvar no histórico aqui!
+        // O executeSearch já salva automaticamente (linha 60-69 e 107-116 do useSearch.ts)
+        // Salvar duas vezes causa duplicação
+        
+        console.log('⏭️ Pulando saveToHistory (já foi salvo no executeSearch)')
         
         // Redirect to scientific results page
+        console.log('🔀 Navegando para resultados...')
         navigate('/results/scientific', { state: { result } })
       } catch (err) {
-        console.error('Search failed:', err)
+        console.error('❌ Search failed:', err)
+        setSearchExecuted(false) // Permitir retry em caso de erro
       }
     }
 
     startSearchAsync()
-  }, [molecule, brand, countries, user, navigate, executeSearch, saveToHistory])
+  }, []) // VAZIO! Só executa UMA VEZ
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
