@@ -1,6 +1,6 @@
 /**
  * Netlify Function - Start async search
- * Updated for v30.4 with queue support
+ * Uses /search/async endpoint for long-running searches
  */
 
 const RAILWAY_API = 'https://pharmyrus-total35-production-5392.up.railway.app'
@@ -15,10 +15,10 @@ exports.handler = async (event) => {
 
   try {
     const body = JSON.parse(event.body)
-    console.log('🔍 Starting search with queue:', body)
+    console.log('🔍 Starting async search:', body)
 
-    // v30.4: Use /search endpoint (with automatic queue)
-    const response = await fetch(`${RAILWAY_API}/search`, {
+    // Use /search/async endpoint (returns job_id immediately)
+    const response = await fetch(`${RAILWAY_API}/search/async`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
