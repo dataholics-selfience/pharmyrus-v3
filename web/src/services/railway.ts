@@ -21,6 +21,9 @@ export interface SearchJob {
   progress?: number
   step?: string
   error?: string
+  // Queue support (v30.4)
+  queue_position?: number
+  queue_message?: string
 }
 
 export interface SearchResult {

@@ -3,7 +3,7 @@ import { useLocation, useNavigate, Link } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { AlertCircle, ArrowLeft, Loader2 } from 'lucide-react'
+import { AlertCircle, ArrowLeft, Loader2, Clock } from 'lucide-react'
 import { useSearch } from '@/hooks/useSearch'
 import { useAuth } from '@/hooks/useAuth'
 import { useSearchHistory } from '@/hooks/useSearchHistory'
@@ -138,8 +138,17 @@ export function SearchPage() {
                 <Progress value={progress} className="h-2" />
                 
                 <div className="flex items-center gap-2 text-sm text-muted-foreground justify-center">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Isso pode levar alguns minutos...</span>
+                  {currentStep.includes('Aguardando fila') || currentStep.includes('⏳') ? (
+                    <Clock className="h-4 w-4 animate-pulse" />
+                  ) : (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  )}
+                  <span>
+                    {currentStep.includes('Aguardando fila') || currentStep.includes('⏳') 
+                      ? 'Aguardando processamento...'
+                      : 'Isso pode levar alguns minutos...'
+                    }
+                  </span>
                 </div>
               </div>
             )}

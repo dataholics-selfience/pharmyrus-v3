@@ -83,13 +83,28 @@ export function useSearch() {
 
       setCurrentStep('Buscando patentes...')
 
-      // 3. Poll status (UNCHANGED - this is the working polling code)
+      // 3. Poll status (ENHANCED with queue support v30.4)
       const result = await pollSearchStatus(
         jobId,
         (status: SearchJob) => {
           console.log('📊 Progress:', status)
+          
+          // Determinar mensagem a mostrar
+          let displayStep = status.step || 'Processando...'
+          
+          // NOVO: Detectar se está na fila
+          if (status.queue_position && status.queue_position > 0) {
+            // NA FILA - mostrar posição
+            displayStep = `⏳ Aguardando fila de processamento (posição ${status.queue_position})`
+            console.log(`⏳ Na fila - posição ${status.queue_position}`)
+          } else if (status.status === 'queued' && !status.queue_position) {
+            // Queued mas sem posição específica
+            displayStep = '⏳ Aguardando fila de processamento...'
+            console.log('⏳ Na fila - aguardando...')
+          }
+          
           setProgress(status.progress || 0)
-          setCurrentStep(status.step || 'Processando...')
+          setCurrentStep(displayStep)
         },
         20000 // 20s - don't change this!
       )
