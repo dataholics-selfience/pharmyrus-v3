@@ -164,14 +164,6 @@ export function SubscriptionsManagement() {
       setSaving(false)
     }
   }
-      await loadData()
-    } catch (error) {
-      console.error('Error creating subscription:', error)
-      toast.error('Erro ao criar assinatura')
-    } finally {
-      setSaving(false)
-    }
-  }
 
   const handlePause = async (subId: string) => {
     try {
