@@ -54,15 +54,20 @@ export function OrganizationsManagement() {
   }
 
   const handleCreateNew = async () => {
-    if (!newOrg.name || !newOrg.email) {
-      toast.error('Preencha nome e email')
+    if (!newOrg.name) {
+      toast.error('Nome é obrigatório')
       return
     }
 
     setSaving(true)
     try {
       await addDoc(collection(db, 'organizations'), {
-        ...newOrg,
+        name: newOrg.name,
+        type: newOrg.type,
+        email: newOrg.email || null,
+        cnpj: newOrg.cnpj || null,
+        phone: newOrg.phone || null,
+        status: newOrg.status,
         createdAt: new Date(),
         updatedAt: new Date(),
         createdBy: 'admin'
@@ -293,7 +298,7 @@ export function OrganizationsManagement() {
               </div>
 
               <div className="space-y-2">
-                <Label>Email *</Label>
+                <Label>Email</Label>
                 <Input
                   type="email"
                   value={newOrg.email}

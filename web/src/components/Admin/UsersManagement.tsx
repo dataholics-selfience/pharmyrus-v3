@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
-import { collection, getDocs, query, orderBy, updateDoc, doc, deleteDoc } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { collection, getDocs, query, orderBy, updateDoc, doc, deleteDoc, addDoc } from 'firebase/firestore'
+import { createUserWithEmailAndPassword } from 'firebase/auth'
+import { auth, db } from '@/lib/firebase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { Users, Loader2, Search, Crown, Edit, Trash2, Save, X } from 'lucide-react'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Users, Loader2, Search, Crown, Edit, Trash2, Save, X, Plus, UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface UserData {
@@ -29,6 +31,13 @@ export function UsersManagement() {
   const [searchTerm, setSearchTerm] = useState('')
   const [editingUser, setEditingUser] = useState<UserData | null>(null)
   const [saving, setSaving] = useState(false)
+  const [creatingUser, setCreatingUser] = useState(false)
+  const [newUser, setNewUser] = useState({
+    email: '',
+    password: '',
+    displayName: '',
+    planId: 'basico'
+  })
 
   useEffect(() => {
     loadData()
@@ -96,11 +105,15 @@ export function UsersManagement() {
 
     setSaving(true)
     try {
+      // Buscar limite do plano selecionado
+      const selectedPlan = plans.find(p => p.id === editingUser.planId)
+      const newLimit = selectedPlan?.searchesPerUser || editingUser.searchesLimit
+
       // Atualizar userPlan
       await updateDoc(doc(db, 'userPlans', editingUser.uid), {
         planId: editingUser.planId,
-        planName: plans.find(p => p.id === editingUser.planId)?.name || editingUser.planName,
-        searchesLimit: editingUser.searchesLimit,
+        planName: selectedPlan?.name || editingUser.planName,
+        searchesLimit: newLimit,
         searchesUsed: editingUser.searchesUsed,
         updatedAt: new Date()
       })
@@ -306,23 +319,24 @@ export function UsersManagement() {
                 <select
                   className="w-full border rounded-md px-3 py-2"
                   value={editingUser.planId}
-                  onChange={(e) => setEditingUser({ ...editingUser, planId: e.target.value })}
+                  onChange={(e) => {
+                    const selectedPlan = plans.find(p => p.id === e.target.value)
+                    setEditingUser({ 
+                      ...editingUser, 
+                      planId: e.target.value,
+                      searchesLimit: selectedPlan?.searchesPerUser || editingUser.searchesLimit
+                    })
+                  }}
                 >
                   {plans.map(plan => (
                     <option key={plan.id} value={plan.id}>
-                      {plan.name}
+                      {plan.name} ({plan.searchesPerUser} consultas)
                     </option>
                   ))}
                 </select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Limite de Consultas</Label>
-                <Input
-                  type="number"
-                  value={editingUser.searchesLimit}
-                  onChange={(e) => setEditingUser({ ...editingUser, searchesLimit: Number(e.target.value) })}
-                />
+                <p className="text-xs text-muted-foreground">
+                  Limite será: {plans.find(p => p.id === editingUser.planId)?.searchesPerUser || editingUser.searchesLimit} consultas
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -332,6 +346,9 @@ export function UsersManagement() {
                   value={editingUser.searchesUsed}
                   onChange={(e) => setEditingUser({ ...editingUser, searchesUsed: Number(e.target.value) })}
                 />
+                <p className="text-xs text-muted-foreground">
+                  Pode ajustar para resetar ou corrigir contador
+                </p>
               </div>
             </div>
 
