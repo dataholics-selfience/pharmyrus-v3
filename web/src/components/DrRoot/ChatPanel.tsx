@@ -20,7 +20,8 @@ export function ChatPanel({
   onReportGenerate 
 }: ChatPanelProps) {
   // Estados: closed, minimized, expanded
-  const [panelState, setPanelState] = useState<'closed' | 'minimized' | 'expanded'>('minimized')
+  // COMEÇA EXPANDED (totalmente aberto)
+  const [panelState, setPanelState] = useState<'closed' | 'minimized' | 'expanded'>('expanded')
   
   const { 
     messages, 

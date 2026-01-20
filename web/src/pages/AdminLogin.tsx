@@ -37,7 +37,6 @@ export function AdminLoginPage() {
       
       console.log('✅ [ADMIN LOGIN] Success')
       navigate('/admin/dashboard')
-    } catch (err: any) {
       console.error('Admin login error:', err)
       
       switch (err.code) {

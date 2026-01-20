@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search } from 'lucide-react'
+import { Search, Shield } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
@@ -114,6 +114,20 @@ export function LandingPage() {
                 <span className="text-sm text-muted-foreground">
                   Olá, <span className="font-medium text-foreground">{user.displayName || user.email}</span>
                 </span>
+                
+                {/* Botão Admin - só aparece para innovagenoi@gmail.com */}
+                {user.email === 'innovagenoi@gmail.com' && (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => navigate('/admin/dashboard')}
+                    className="border-purple-300 text-purple-700 hover:bg-purple-50"
+                  >
+                    <Shield className="h-4 w-4 mr-2" />
+                    Admin
+                  </Button>
+                )}
+                
                 <Button 
                   variant="outline" 
                   size="sm"
