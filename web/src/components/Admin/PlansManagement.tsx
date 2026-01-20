@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Package, Save, Loader2, Plus, X, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -236,21 +237,15 @@ export function PlansManagement() {
       </Card>
 
       {/* Create New Dialog */}
-      {creatingNew && (
-        <Card className="border-2 border-green-500">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Criar Novo Plano</CardTitle>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setCreatingNew(false)}
-              >
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
+      <Dialog open={creatingNew} onOpenChange={setCreatingNew}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Criar Novo Plano</DialogTitle>
+            <DialogDescription>
+              Preencha as informações do novo plano
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Nome do Plano *</Label>
@@ -302,16 +297,21 @@ export function PlansManagement() {
               />
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex gap-4 pt-4">
               <Button
                 variant="outline"
-                onClick={() => setCreatingNew(false)}
+                onClick={() => {
+                  setCreatingNew(false)
+                  setNewPlan({ name: '', description: '', price: 0, searchesPerUser: 1, maxUsers: 1, features: [''], isActive: true })
+                }}
+                className="flex-1"
               >
                 Cancelar
               </Button>
               <Button
                 onClick={handleCreateNew}
                 disabled={saving}
+                className="flex-1"
               >
                 {saving ? (
                   <>
@@ -326,9 +326,9 @@ export function PlansManagement() {
                 )}
               </Button>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Dialog */}
       {editingPlan && (

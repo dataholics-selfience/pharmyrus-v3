@@ -15,6 +15,7 @@ import { AnalyticsDashboard } from '@/components/Admin/AnalyticsDashboard'
 import { PlansManagement } from '@/components/Admin/PlansManagement'
 import { OrganizationsManagement } from '@/components/Admin/OrganizationsManagement'
 import { UsersManagement } from '@/components/Admin/UsersManagement'
+import { SubscriptionsManagement } from '@/components/Admin/SubscriptionsManagement'
 
 interface DrRootConfig {
   systemPrompt: string
@@ -201,21 +202,7 @@ export function AdminDashboardPage() {
 
           {/* Tab: Assinaturas */}
           <TabsContent value="subscriptions">
-            <Card>
-              <CardHeader>
-                <CardTitle>Gestão de Assinaturas</CardTitle>
-                <CardDescription>
-                  Gerencie contratações e renovações
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8 text-muted-foreground">
-                  <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>Componente de gestão de assinaturas</p>
-                  <p className="text-sm">Em desenvolvimento...</p>
-                </div>
-              </CardContent>
-            </Card>
+            <SubscriptionsManagement />
           </TabsContent>
 
           {/* Tab: Usuários */}

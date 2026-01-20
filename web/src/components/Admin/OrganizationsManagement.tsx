@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Building2, Loader2, Search, User, Plus, Edit, Trash2, Save, X } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -264,73 +265,49 @@ export function OrganizationsManagement() {
       </Card>
 
       {/* Create Dialog */}
-      {creatingNew && (
-        <Card className="border-2 border-green-500">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Nova Organização</CardTitle>
-              <Button variant="ghost" size="sm" onClick={() => setCreatingNew(false)}>
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Nome *</Label>
-                <Input
-                  value={newOrg.name}
-                  onChange={(e) => setNewOrg({ ...newOrg, name: e.target.value })}
-                  placeholder="Nome da organização"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Tipo *</Label>
-                <select
-                  className="w-full border rounded-md px-3 py-2"
-                  value={newOrg.type}
-                  onChange={(e) => setNewOrg({ ...newOrg, type: e.target.value as 'individual' | 'company' })}
-                >
-                  <option value="individual">Individual</option>
-                  <option value="company">Empresa</option>
-                </select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Email</Label>
-                <Input
-                  type="email"
-                  value={newOrg.email}
-                  onChange={(e) => setNewOrg({ ...newOrg, email: e.target.value })}
-                  placeholder="email@exemplo.com"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>CNPJ</Label>
-                <Input
-                  value={newOrg.cnpj}
-                  onChange={(e) => setNewOrg({ ...newOrg, cnpj: e.target.value })}
-                  placeholder="00.000.000/0000-00"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Telefone</Label>
-                <Input
-                  value={newOrg.phone}
-                  onChange={(e) => setNewOrg({ ...newOrg, phone: e.target.value })}
-                  placeholder="(00) 00000-0000"
-                />
-              </div>
+      <Dialog open={creatingNew} onOpenChange={setCreatingNew}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nova Organização</DialogTitle>
+            <DialogDescription>
+              Preencha as informações básicas
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Nome *</Label>
+              <Input
+                value={newOrg.name}
+                onChange={(e) => setNewOrg({ ...newOrg, name: e.target.value })}
+                placeholder="Nome da organização"
+              />
             </div>
 
-            <div className="flex gap-4">
-              <Button variant="outline" onClick={() => setCreatingNew(false)}>
+            <div className="space-y-2">
+              <Label>CNPJ</Label>
+              <Input
+                value={newOrg.cnpj}
+                onChange={(e) => setNewOrg({ ...newOrg, cnpj: e.target.value })}
+                placeholder="00.000.000/0000-00 (opcional)"
+              />
+            </div>
+
+            <div className="flex gap-4 pt-4">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setCreatingNew(false)
+                  setNewOrg({ name: '', type: 'individual', email: '', cnpj: '', phone: '', status: 'active' })
+                }}
+                className="flex-1"
+              >
                 Cancelar
               </Button>
-              <Button onClick={handleCreateNew} disabled={saving}>
+              <Button 
+                onClick={handleCreateNew} 
+                disabled={saving}
+                className="flex-1"
+              >
                 {saving ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -344,9 +321,9 @@ export function OrganizationsManagement() {
                 )}
               </Button>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Dialog */}
       {editingOrg && (
