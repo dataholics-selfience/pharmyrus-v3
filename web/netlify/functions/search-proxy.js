@@ -1,8 +1,9 @@
 /**
  * Netlify Function - Start async search
+ * Updated for v30.4 with queue support
  */
 
-const RAILWAY_API = 'https://pharmyrus-total36-production-81ca.up.railway.app'
+const RAILWAY_API = 'https://pharmyrus-total35-production-5392.up.railway.app'
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
@@ -14,9 +15,10 @@ exports.handler = async (event) => {
 
   try {
     const body = JSON.parse(event.body)
-    console.log('🔍 Starting async search:', body)
+    console.log('🔍 Starting search with queue:', body)
 
-    const response = await fetch(`${RAILWAY_API}/search/async`, {
+    // v30.4: Use /search endpoint (with automatic queue)
+    const response = await fetch(`${RAILWAY_API}/search`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -52,4 +54,3 @@ exports.handler = async (event) => {
     }
   }
 }
-

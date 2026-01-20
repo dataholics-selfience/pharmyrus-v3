@@ -1,4 +1,4 @@
-const RAILWAY_API = 'https://pharmyrus-total36-production-81ca.up.railway.app'
+const RAILWAY_API = 'https://pharmyrus-total35-production-5392.up.railway.app'
 
 exports.handler = async (event) => {
   const jobId = event.queryStringParameters?.job_id
