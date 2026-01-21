@@ -12,6 +12,10 @@ import {
   saveToCacheFirestore, 
   saveSearchToHistory 
 } from '@/services/cacheFirestore'
+import { 
+  canUserSearch, 
+  incrementSearchUsage 
+} from '@/services/plans'
 import { useAuth } from './useAuth'
 
 /**
@@ -35,12 +39,29 @@ export function useSearch() {
     setLoading(true)
     setError(null)
     setProgress(0)
-    setCurrentStep('Verificando cache...')
+    setCurrentStep('Verificando limite...')
 
     try {
       const countries = request.countries || ['BR']
       
-      // 1. CHECK CACHE FIRST (2 fast Firestore reads)
+      // 1. VALIDAR QUOTA PRIMEIRO (ANTES de tudo!)
+      if (user) {
+        console.log('🔍 Checking user quota...')
+        const canSearch = await canUserSearch(user.uid)
+        
+        if (!canSearch) {
+          console.error('❌ Quota exceeded!')
+          setError('Limite de buscas atingido! Faça upgrade do seu plano.')
+          setLoading(false)
+          throw new Error('Limite de buscas atingido! Faça upgrade do seu plano.')
+        }
+        
+        console.log('✅ Quota OK, proceeding...')
+      }
+      
+      setCurrentStep('Verificando cache...')
+      
+      // 2. CHECK CACHE (após validar quota)
       console.log('🔍 Checking cache:', request.molecule, countries)
       
       const hasCache = await hasCachedResult(request.molecule, countries)
@@ -55,6 +76,12 @@ export function useSearch() {
           setProgress(100)
           setCurrentStep('Carregado do cache!')
           setLoading(false)
+          
+          // INCREMENT USAGE (cache CONTA no limite!)
+          if (user) {
+            console.log('📊 Incrementing usage (cache)...')
+            await incrementSearchUsage(user.uid, `cached_${Date.now()}`)
+          }
           
           // Save to user history (só se tiver user)
           if (user) {
@@ -74,7 +101,7 @@ export function useSearch() {
       
       console.log('❌ Cache miss - calling API')
       
-      // 2. CACHE MISS - Start API search (UNCHANGED working code)
+      // 3. CACHE MISS - Start API search
       setCurrentStep('Iniciando busca...')
       
       console.log('🔍 Starting search:', request)
@@ -83,7 +110,7 @@ export function useSearch() {
 
       setCurrentStep('Buscando patentes...')
 
-      // 3. Poll status (ENHANCED with queue support v30.4)
+      // 4. Poll status (ENHANCED with queue support v30.4)
       const result = await pollSearchStatus(
         jobId,
         (status: SearchJob) => {
@@ -114,11 +141,17 @@ export function useSearch() {
       setProgress(100)
       setCurrentStep('Busca concluída!')
 
-      // 4. SAVE TO CACHE (after successful completion)
+      // 5. SAVE TO CACHE (after successful completion)
       console.log('💾 Saving to cache...')
       await saveToCacheFirestore(request.molecule, countries, result)
       
-      // 5. SAVE TO USER HISTORY (só se tiver user)
+      // 6. INCREMENT USAGE COUNTER (busca nova)
+      if (user) {
+        console.log('📊 Incrementing usage (new search)...')
+        await incrementSearchUsage(user.uid, jobId)
+      }
+      
+      // 7. SAVE TO USER HISTORY (só se tiver user)
       if (user) {
         await saveSearchToHistory(
           user.uid,

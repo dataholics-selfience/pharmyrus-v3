@@ -81,6 +81,11 @@ export function usePlan(userId: string | undefined) {
   }
 
   const createFreePlan = async (uid: string) => {
+    // DESATIVADO - Usando sistema plans.ts
+    console.log('[usePlan] Sistema antigo desativado - usando plans.ts')
+    return
+    
+    /* CÓDIGO ANTIGO DESATIVADO
     try {
       // Buscar plano básico
       const plansQuery = query(
@@ -122,7 +127,9 @@ export function usePlan(userId: string | undefined) {
       console.error('[usePlan] Error creating free plan:', error)
       throw error
     }
+    */
   }
+
 
   const incrementSearchCount = async () => {
     if (!userId || !userPlan) {
