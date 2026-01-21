@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, setDoc } from 'firebase/firestore'
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, setDoc, getDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -131,18 +131,64 @@ export function SubscriptionsManagement() {
     setShowEdit(true)
   }
 
+  // NOVO: Verificar se usuário já está em outra assinatura
+  const checkUserInOtherSubscriptions = async (userId: string, currentSubId?: string) => {
+    const userSubs = subscriptions.filter(sub => 
+      sub.id !== currentSubId && 
+      sub.userIds?.includes(userId) &&
+      sub.status === 'active'
+    )
+    return userSubs
+  }
+
+  // NOVO: Migrar usuário de uma assinatura para outra
+  const migrateUserBetweenSubscriptions = async (
+    userId: string, 
+    fromSubId: string, 
+    toSubId: string
+  ) => {
+    try {
+      console.log(`🔄 Migrando usuário ${userId} de ${fromSubId} para ${toSubId}`)
+      
+      // Remover da assinatura anterior
+      const fromSubRef = doc(db, 'subscriptions', fromSubId)
+      const fromSubSnap = await getDoc(fromSubRef)
+      
+      if (fromSubSnap.exists()) {
+        const fromSubData = fromSubSnap.data()
+        const updatedUserIds = (fromSubData.userIds || []).filter((id: string) => id !== userId)
+        
+        await updateDoc(fromSubRef, {
+          userIds: updatedUserIds,
+          currentUsers: updatedUserIds.length,
+          updatedAt: new Date()
+        })
+        
+        console.log(`  ✅ Removido da assinatura ${fromSubId}`)
+      }
+      
+      return true
+    } catch (error) {
+      console.error('Erro ao migrar usuário:', error)
+      return false
+    }
+  }
+
   // NOVO: Salvar edição
   const handleUpdate = async () => {
     if (!editingSub) return
     
     setSaving(true)
     try {
+      // NOVO: Atualizar também a lista de usuários vinculados
       await updateDoc(doc(db, 'subscriptions', editingSub.id), {
         status: editingSub.status,
         monthlyPrice: editingSub.monthlyPrice,
         maxUsers: editingSub.maxUsers,
         searchesPerUser: editingSub.searchesPerUser,
         endDate: editingSub.endDate,
+        userIds: editingSub.userIds || [],
+        currentUsers: editingSub.userIds?.length || 0,
         updatedAt: new Date()
       })
       
@@ -150,19 +196,29 @@ export function SubscriptionsManagement() {
       if (editingSub.userIds && editingSub.userIds.length > 0) {
         console.log(`🔄 Sincronizando planos de ${editingSub.userIds.length} usuários...`)
         
+        const plan = plans.find(p => p.id === editingSub.planId)
+        
         for (const userId of editingSub.userIds) {
           try {
             // Atualizar users/{uid}/plan/current
-            await updateDoc(doc(db, 'users', userId, 'plan', 'current'), {
+            await setDoc(doc(db, 'users', userId, 'plan', 'current'), {
+              tier: 'subscription',
               searchesLimit: editingSub.searchesPerUser,
+              subscriptionId: editingSub.id,
+              organizationId: editingSub.organizationId,
+              planName: plan?.name || editingSub.planName,
               updatedAt: new Date()
-            })
+            }, { merge: true })
             
             // Atualizar userPlans também
-            await updateDoc(doc(db, 'userPlans', userId), {
+            await setDoc(doc(db, 'userPlans', userId), {
+              subscriptionId: editingSub.id,
               searchesLimit: editingSub.searchesPerUser,
+              organizationId: editingSub.organizationId,
+              planId: editingSub.planId,
+              planName: plan?.name || editingSub.planName,
               updatedAt: new Date()
-            })
+            }, { merge: true })
           } catch (error) {
             console.error(`Erro ao atualizar plano do usuário ${userId}:`, error)
           }
@@ -193,6 +249,34 @@ export function SubscriptionsManagement() {
     if (plan && newSub.userIds.length > plan.maxUsers) {
       toast.error(`Este plano permite no máximo ${plan.maxUsers} usuários!`)
       return
+    }
+    
+    // NOVO: Validar múltiplas assinaturas ANTES de criar
+    if (newSub.userIds.length > 0) {
+      for (const userId of newSub.userIds) {
+        const existingSubs = await checkUserInOtherSubscriptions(userId)
+        
+        if (existingSubs.length > 0) {
+          const user = users.find(u => u.id === userId)
+          const existingSub = existingSubs[0]
+          
+          const confirmed = window.confirm(
+            `⚠️ O usuário ${user?.email || userId} já está vinculado à assinatura:\n\n` +
+            `📋 Empresa: ${existingSub.organizationName}\n` +
+            `📦 Plano: ${existingSub.planName}\n\n` +
+            `Deseja MIGRAR este usuário para a nova assinatura?\n` +
+            `(Ele será removido da assinatura anterior)`
+          )
+          
+          if (!confirmed) {
+            toast.info('Operação cancelada pelo usuário')
+            return
+          }
+          
+          // Marcar para migração posterior
+          console.log(`📝 Usuário ${userId} será migrado de ${existingSub.id}`)
+        }
+      }
     }
 
     console.log('📝 Criando assinatura:', newSub)
@@ -229,6 +313,21 @@ export function SubscriptionsManagement() {
       })
 
       console.log(`✅ Assinatura criada: ${subRef.id}`)
+
+      // NOVO: Migrar usuários se necessário (remover de assinaturas antigas)
+      if (newSub.userIds.length > 0) {
+        for (const userId of newSub.userIds) {
+          const existingSubs = await checkUserInOtherSubscriptions(userId, subRef.id)
+          
+          if (existingSubs.length > 0) {
+            console.log(`🔄 Migrando usuário ${userId} de assinaturas antigas...`)
+            
+            for (const oldSub of existingSubs) {
+              await migrateUserBetweenSubscriptions(userId, oldSub.id, subRef.id)
+            }
+          }
+        }
+      }
 
       // Vincular usuários selecionados
       if (newSub.userIds.length > 0) {
@@ -294,6 +393,12 @@ export function SubscriptionsManagement() {
             // Continua para próximo usuário mesmo com erro
           }
         }
+        
+        // NOVO: Atualizar userIds na subscription após vincular todos
+        await updateDoc(doc(db, 'subscriptions', subRef.id), {
+          userIds: newSub.userIds,
+          updatedAt: new Date()
+        })
         
         console.log(`✅ Processamento de usuários concluído!`)
         toast.success(`Assinatura criada com ${newSub.userIds.length} usuário(s)!`)
@@ -415,15 +520,17 @@ export function SubscriptionsManagement() {
                   <Card key={sub.id} className="border-2">
                     <CardHeader>
                       <div className="flex items-start justify-between">
-                        <div>
-                          <CardTitle className="flex items-center gap-2">
+                        <div className="flex-1">
+                          <CardTitle className="flex items-center gap-2 mb-1">
                             {sub.organizationName}
                             <Badge className={getStatusColor(sub.status)}>
                               {getStatusLabel(sub.status)}
                             </Badge>
                           </CardTitle>
-                          <CardDescription>
-                            Plano: {sub.planName}
+                          <CardDescription className="flex items-center gap-2">
+                            <span className="font-semibold text-primary">📦 {sub.planName}</span>
+                            <span className="text-muted-foreground">•</span>
+                            <span className="text-xs">R$ {sub.monthlyPrice.toLocaleString('pt-BR')}/mês</span>
                           </CardDescription>
                         </div>
                         <div className="flex gap-2">
@@ -535,7 +642,7 @@ export function SubscriptionsManagement() {
 
       {/* Create Dialog */}
       <Dialog open={creatingNew} onOpenChange={setCreatingNew}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">{/*Adicionado scroll*/}
           <DialogHeader>
             <DialogTitle>Nova Assinatura</DialogTitle>
             <DialogDescription>
@@ -744,19 +851,36 @@ export function SubscriptionsManagement() {
               <Card>
                 <CardHeader>
                   <CardTitle className="text-sm">
-                    Usuários ({selectedSub.currentUsers}/{selectedSub.maxUsers})
+                    Usuários ({selectedSub.userIds?.length || 0}/{selectedSub.maxUsers})
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-1">
-                    {selectedSub.userEmails && selectedSub.userEmails.length > 0 ? (
-                      selectedSub.userEmails.map((email, i) => (
-                        <div key={i} className="text-sm">{email}</div>
-                      ))
-                    ) : (
-                      <div className="text-sm text-muted-foreground">Nenhum usuário vinculado</div>
-                    )}
-                  </div>
+                  {selectedSub.userIds && selectedSub.userIds.length > 0 ? (
+                    <div className="space-y-2">
+                      {selectedSub.userIds.map((userId, i) => {
+                        const userEmail = selectedSub.userEmails?.[i]
+                        const user = users.find(u => u.id === userId)
+                        
+                        return (
+                          <div key={i} className="flex items-center gap-2 p-2 rounded bg-muted/50">
+                            <div className="flex-1">
+                              <div className="text-sm font-medium">
+                                {user?.displayName || userEmail || userId}
+                              </div>
+                              {user?.displayName && userEmail && (
+                                <div className="text-xs text-muted-foreground">{userEmail}</div>
+                              )}
+                            </div>
+                            <Badge variant="secondary" className="text-xs">Ativo</Badge>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground py-4 text-center">
+                      ⚠️ Nenhum usuário vinculado ainda
+                    </div>
+                  )}
                 </CardContent>
               </Card>
               
@@ -795,7 +919,7 @@ export function SubscriptionsManagement() {
 
       {/* NOVO: Modal de Edição */}
       <Dialog open={showEdit} onOpenChange={setShowEdit}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">{/*Aumentado de max-w-md*/}
           <DialogHeader>
             <DialogTitle>Editar Assinatura</DialogTitle>
             <DialogDescription>
@@ -848,17 +972,15 @@ export function SubscriptionsManagement() {
                 />
               </div>
               
-              <div>
-                <Label>Buscas por Usuário</Label>
-                <Input
-                  type="number"
-                  value={editingSub.searchesPerUser}
-                  onChange={(e) => setEditingSub({
-                    ...editingSub,
-                    searchesPerUser: parseInt(e.target.value)
-                  })}
-                  className="mt-1"
-                />
+              {/* REMOVIDO: Campo "Buscas por Usuário" - redundante, definido pelo plano */}
+              {/* Info: O limite de buscas é definido pelo plano contratado */}
+              <div className="p-3 bg-muted/50 rounded-md">
+                <div className="text-xs text-muted-foreground">
+                  <strong>Buscas por Usuário:</strong> {editingSub.searchesPerUser}
+                  <span className="block mt-1">
+                    (Definido pelo plano "{editingSub.planName}")
+                  </span>
+                </div>
               </div>
               
               <div>
@@ -872,6 +994,95 @@ export function SubscriptionsManagement() {
                   })}
                   className="mt-1"
                 />
+              </div>
+              
+              {/* NOVO: Seção de Usuários Vinculados */}
+              <div className="pt-4 border-t">
+                <Label>Usuários Vinculados</Label>
+                <div className="border rounded-md p-3 max-h-60 overflow-y-auto space-y-2 mt-2 bg-muted/30">
+                  {users.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Nenhum usuário disponível</p>
+                  ) : (
+                    users.map(user => {
+                      const isSelected = editingSub.userIds?.includes(user.id) || false
+                      const maxUsersReached = (editingSub.userIds?.length || 0) >= editingSub.maxUsers
+                      const isDisabled = !isSelected && maxUsersReached
+                      
+                      return (
+                        <label 
+                          key={user.id} 
+                          className={`flex items-center gap-2 p-2 rounded cursor-pointer transition-colors ${
+                            isDisabled 
+                              ? 'opacity-50 cursor-not-allowed bg-muted' 
+                              : 'hover:bg-background'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            disabled={isDisabled}
+                            onChange={async (e) => {
+                              if (e.target.checked) {
+                                // Validar se já está em outra assinatura
+                                const existingSubs = await checkUserInOtherSubscriptions(user.id, editingSub.id)
+                                
+                                if (existingSubs.length > 0) {
+                                  const confirmed = window.confirm(
+                                    `⚠️ O usuário ${user.email} já está vinculado à:\n\n` +
+                                    `📋 ${existingSubs[0].organizationName} - ${existingSubs[0].planName}\n\n` +
+                                    `Deseja MIGRAR para esta assinatura?`
+                                  )
+                                  
+                                  if (!confirmed) {
+                                    toast.info('Operação cancelada')
+                                    return
+                                  }
+                                  
+                                  // Migrar
+                                  await migrateUserBetweenSubscriptions(user.id, existingSubs[0].id, editingSub.id)
+                                }
+                                
+                                // Adicionar
+                                setEditingSub({
+                                  ...editingSub,
+                                  userIds: [...(editingSub.userIds || []), user.id]
+                                })
+                                toast.success(`Usuário ${user.email} adicionado`)
+                              } else {
+                                // Remover
+                                setEditingSub({
+                                  ...editingSub,
+                                  userIds: (editingSub.userIds || []).filter(id => id !== user.id)
+                                })
+                                toast.success(`Usuário ${user.email} removido`)
+                              }
+                            }}
+                            className="w-4 h-4"
+                          />
+                          <div className="flex-1">
+                            <div className="text-sm font-medium">
+                              {user.displayName || user.email}
+                            </div>
+                            {user.displayName && (
+                              <div className="text-xs text-muted-foreground">{user.email}</div>
+                            )}
+                          </div>
+                          {isSelected && (
+                            <Badge variant="secondary" className="text-xs">Vinculado</Badge>
+                          )}
+                        </label>
+                      )
+                    })
+                  )}
+                </div>
+                <div className="mt-2 text-xs text-muted-foreground flex items-center justify-between">
+                  <span>
+                    {editingSub.userIds?.length || 0} de {editingSub.maxUsers} usuários vinculados
+                  </span>
+                  {(editingSub.userIds?.length || 0) >= editingSub.maxUsers && (
+                    <span className="text-amber-600 font-medium">⚠️ Limite atingido</span>
+                  )}
+                </div>
               </div>
             </div>
           )}

@@ -7,6 +7,8 @@ import { AlertCircle, ArrowLeft, Loader2, Clock } from 'lucide-react'
 import { useSearch } from '@/hooks/useSearch'
 import { useAuth } from '@/hooks/useAuth'
 import { useSearchHistory } from '@/hooks/useSearchHistory'
+import { usePlan } from '@/hooks/usePlan'
+import { QuotaWarning } from '@/components/QuotaWarning'
 
 /**
  * Search Page - Railway API Integration
@@ -24,6 +26,7 @@ export function SearchPage() {
   const { user } = useAuth()
   const { executeSearch, loading, progress, currentStep, error } = useSearch()
   const { saveToHistory } = useSearchHistory()
+  const { usagePercentage, remainingSearches, userPlan } = usePlan(user?.uid)
   
   // Get search params from location.state (vem do Login/Signup)
   const molecule = location.state?.molecule
@@ -93,6 +96,18 @@ export function SearchPage() {
       {/* Main content */}
       <div className="flex-1 flex items-center justify-center px-4">
         <div className="w-full max-w-2xl">
+          {/* Quota Warning - Se >= 75% */}
+          {userPlan && usagePercentage >= 75 && (
+            <div className="mb-4">
+              <QuotaWarning
+                usagePercentage={usagePercentage}
+                searchesUsed={userPlan.searchesUsed}
+                searchesLimit={userPlan.searchesLimit}
+                remainingSearches={remainingSearches}
+              />
+            </div>
+          )}
+          
           <Card>
           <CardHeader className="text-center">
             <CardTitle>Buscando Patentes</CardTitle>

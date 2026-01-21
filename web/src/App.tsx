@@ -15,6 +15,7 @@ import { AdminDashboardPage } from '@/pages/AdminDashboard'
 
 // Components
 import { ProtectedRoute } from '@/components/ProtectedRoute'
+import { QuotaFooter } from '@/components/QuotaFooter'
 
 // Providers
 import { AuthProvider } from '@/hooks/useAuth'
@@ -117,6 +118,9 @@ function App() {
           
           {/* Toast notifications */}
           <Toaster position="top-right" richColors />
+          
+          {/* Quota Footer - Aparece em todas as páginas autenticadas */}
+          <QuotaFooter />
         </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>
