@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Shield, Save, RotateCcw, LogOut, Settings, MessageSquare, BarChart3, Package, Building2, FileText, Users, Bell } from 'lucide-react'
 import { toast } from 'sonner'
 import { AnalyticsDashboard } from '@/components/Admin/AnalyticsDashboard'
-import { PlansManagement } from '@/components/Admin/PlansManagement'
+import { AdminPlans } from '@/components/AdminPlans'
 import { OrganizationsManagement } from '@/components/Admin/OrganizationsManagement'
 import { UsersManagement } from '@/components/Admin/UsersManagement'
 import { SubscriptionsManagement } from '@/components/Admin/SubscriptionsManagement'
@@ -192,7 +192,7 @@ export function AdminDashboardPage() {
 
           {/* Tab: Planos */}
           <TabsContent value="plans">
-            <PlansManagement />
+            <AdminPlans />
           </TabsContent>
 
           {/* Tab: Organizações */}
