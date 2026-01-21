@@ -59,11 +59,13 @@ export function SubscriptionsManagement() {
       const orgsSnapshot = await getDocs(collection(db, 'organizations'))
       const orgsData = orgsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }))
       setOrganizations(orgsData)
+      console.log('📋 Organizations loaded:', orgsData.length)
 
       // Load plans
       const plansSnapshot = await getDocs(collection(db, 'plans'))
       const plansData = plansSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }))
       setPlans(plansData)
+      console.log('📦 Plans loaded:', plansData.length)
 
       // Load users
       const usersSnapshot = await getDocs(collection(db, 'users'))
@@ -73,11 +75,20 @@ export function SubscriptionsManagement() {
         displayName: doc.data().displayName
       }))
       setUsers(usersData)
+      console.log('👥 Users loaded:', usersData.length)
 
       // Load subscriptions with enhanced data
       const subsSnapshot = await getDocs(collection(db, 'subscriptions'))
+      console.log('📊 Raw subscriptions:', subsSnapshot.docs.length)
+      
       const subsDataPromises = subsSnapshot.docs.map(async (docSnap) => {
         const data = docSnap.data()
+        
+        console.log('🔍 Processing subscription:', {
+          id: docSnap.id,
+          userIds: data.userIds,
+          userIdsLength: data.userIds?.length || 0
+        })
         
         // Buscar organização
         const org = orgsData.find(o => o.id === data.organizationId)
@@ -90,8 +101,13 @@ export function SubscriptionsManagement() {
           const user = usersData.find(u => u.id === userId)
           if (user?.email) {
             userEmails.push(user.email)
+            console.log('  ✓ User found:', user.email)
+          } else {
+            console.warn('  ⚠️ User NOT found:', userId)
           }
         }
+        
+        console.log('  📧 Emails collected:', userEmails.length)
         
         return {
           id: docSnap.id,
@@ -112,6 +128,13 @@ export function SubscriptionsManagement() {
       })
 
       setSubscriptions(subsData)
+      console.log('✅ Subscriptions loaded:', subsData.length)
+      console.log('📊 Subscriptions data:', subsData.map(s => ({
+        id: s.id,
+        org: s.organizationName,
+        userIds: s.userIds?.length || 0,
+        emails: s.userEmails?.length || 0
+      })))
     } catch (error) {
       console.error('Error loading data:', error)
     } finally {

@@ -40,9 +40,9 @@ export function usePlan(userId: string | undefined) {
       const userPlanDoc = await getDoc(doc(db, 'userPlans', userId))
       
       if (!userPlanDoc.exists()) {
-        // Criar plano básico gratuito
-        await createFreePlan(userId)
-        await loadUserPlan() // Recarregar
+        // Usuário sem plano - não criar automaticamente
+        console.log('[usePlan] Usuário sem plano definido')
+        setLoading(false)
         return
       }
 
@@ -81,53 +81,11 @@ export function usePlan(userId: string | undefined) {
   }
 
   const createFreePlan = async (uid: string) => {
-    // DESATIVADO - Usando sistema plans.ts
-    console.log('[usePlan] Sistema antigo desativado - usando plans.ts')
+    console.log('[usePlan] Usuário sem plano - não criando automaticamente')
+    // NÃO criar plano automaticamente - deve ser criado pelo admin
+    // Apenas setar loading false para não travar a UI
+    setLoading(false)
     return
-    
-    /* CÓDIGO ANTIGO DESATIVADO
-    try {
-      // Buscar plano básico
-      const plansQuery = query(
-        collection(db, 'plans'),
-        where('name', '==', 'Básico')
-      )
-      const plansSnapshot = await getDocs(plansQuery)
-      
-      if (plansSnapshot.empty) {
-        throw new Error('Basic plan not found')
-      }
-
-      const basicPlan = plansSnapshot.docs[0]
-
-      // Criar user plan
-      const userPlanData: UserPlan = {
-        userId: uid,
-        organizationId: `org_user_${uid}`,
-        organizationType: 'individual',
-        subscriptionId: null,
-        planId: basicPlan.id,
-        planName: basicPlan.data().name,
-        role: 'admin',
-        searchesUsed: 0,
-        searchesLimit: basicPlan.data().searchesPerUser,
-        status: 'active',
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }
-
-      await setDoc(doc(db, 'userPlans', uid), {
-        ...userPlanData,
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now()
-      })
-
-      console.log('✅ Free plan created for user:', uid)
-    } catch (error) {
-      console.error('[usePlan] Error creating free plan:', error)
-      throw error
-    }
-    */
   }
 
 

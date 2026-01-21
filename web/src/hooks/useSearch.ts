@@ -51,15 +51,15 @@ export function useSearch() {
         
         if (!canSearch) {
           console.error('❌ Quota exceeded!')
-          setError('Limite de buscas atingido! Faça upgrade do seu plano.')
+          const errorMsg = 'Limite de buscas atingido! Faça upgrade do seu plano.'
+          setError(errorMsg)
           setLoading(false)
           
-          // Redirecionar para página de planos
-          setTimeout(() => {
-            window.location.href = '/plans'
-          }, 2000)
+          // Redirecionar para página de planos IMEDIATAMENTE
+          console.log('🔀 Redirecionando para /plans...')
+          window.location.href = '/plans'
           
-          throw new Error('Limite de buscas atingido! Faça upgrade do seu plano.')
+          throw new Error(errorMsg)
         }
         
         console.log('✅ Quota OK, proceeding...')

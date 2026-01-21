@@ -55,39 +55,101 @@ export async function getUserPlan(userId: string): Promise<UserPlan | null> {
 
 /**
  * Check if user can search
+ * CORRIGIDO: Busca de userPlans/{uid} (sistema de assinaturas)
  */
 export async function canUserSearch(userId: string): Promise<boolean> {
-  const plan = await getUserPlan(userId)
-  
-  if (!plan) return false
-  
-  // Unlimited plan
-  if (plan.searchesLimit === -1) return true
-  
-  // Check quota
-  return plan.searchesUsed < plan.searchesLimit
+  try {
+    // Tentar buscar de userPlans primeiro (sistema de assinaturas)
+    const userPlanRef = doc(db, 'userPlans', userId)
+    const userPlanSnap = await getDoc(userPlanRef)
+    
+    if (userPlanSnap.exists()) {
+      const data = userPlanSnap.data()
+      console.log('📊 Quota check (userPlans):', {
+        used: data.searchesUsed || 0,
+        limit: data.searchesLimit || 0,
+        canSearch: (data.searchesUsed || 0) < (data.searchesLimit || 0)
+      })
+      
+      // Verificar se está ativo e tem quota
+      if (data.status !== 'active') {
+        console.warn('⚠️ Assinatura não está ativa:', data.status)
+        return false
+      }
+      
+      // Unlimited plan (-1)
+      if (data.searchesLimit === -1) return true
+      
+      // Check quota
+      return (data.searchesUsed || 0) < (data.searchesLimit || 0)
+    }
+    
+    // Fallback: tentar users/{uid}/plan/current (sistema antigo)
+    const plan = await getUserPlan(userId)
+    
+    if (!plan) {
+      console.warn('⚠️ Nenhum plano encontrado para usuário')
+      return false
+    }
+    
+    console.log('📊 Quota check (fallback):', {
+      used: plan.searchesUsed,
+      limit: plan.searchesLimit,
+      canSearch: plan.searchesUsed < plan.searchesLimit
+    })
+    
+    // Unlimited plan
+    if (plan.searchesLimit === -1) return true
+    
+    // Check quota
+    return plan.searchesUsed < plan.searchesLimit
+    
+  } catch (error) {
+    console.error('Error checking quota:', error)
+    return false
+  }
 }
 
 /**
  * Increment search usage
+ * CORRIGIDO: Atualiza AMBOS locais (userPlans + users/plan/current)
  */
 export async function incrementSearchUsage(
   userId: string, 
   jobId: string
 ): Promise<void> {
   try {
-    const docRef = doc(db, 'users', userId, 'plan', 'current')
+    // 1. Atualizar userPlans (sistema de assinaturas - PRINCIPAL)
+    const userPlanRef = doc(db, 'userPlans', userId)
+    const userPlanSnap = await getDoc(userPlanRef)
     
-    await updateDoc(docRef, {
-      searchesUsed: increment(1),
-      lastSearchAt: new Date(),
-      searchHistory: [...(await getUserPlan(userId))?.searchHistory || [], jobId]
-    })
+    if (userPlanSnap.exists()) {
+      await updateDoc(userPlanRef, {
+        searchesUsed: increment(1),
+        lastSearchAt: new Date(),
+        updatedAt: new Date()
+      })
+      console.log('✅ Search usage incremented (userPlans)')
+    }
     
-    console.log('✅ Search usage incremented')
+    // 2. Atualizar users/{uid}/plan/current (sistema antigo - SYNC)
+    const planRef = doc(db, 'users', userId, 'plan', 'current')
+    const planSnap = await getDoc(planRef)
+    
+    if (planSnap.exists()) {
+      const currentHistory = (await getUserPlan(userId))?.searchHistory || []
+      
+      await updateDoc(planRef, {
+        searchesUsed: increment(1),
+        lastSearchAt: new Date(),
+        searchHistory: [...currentHistory, jobId]
+      })
+      console.log('✅ Search usage incremented (users/plan/current)')
+    }
     
   } catch (error) {
     console.error('Error incrementing search usage:', error)
+    throw error // Propagar erro para não perder quota
   }
 }
 
