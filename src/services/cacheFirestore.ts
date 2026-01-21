@@ -135,7 +135,14 @@ export async function saveToCacheFirestore(
     console.log('  🔑 Key:', cacheKey)
     
     // Extract and calculate patent cliff data
-    const patents = result.patent_discovery?.brazilian_patents || []
+    const allPatents = result.patent_discovery?.all_patents || []
+    
+    // Filtrar apenas patentes brasileiras (BR)
+    const patents = allPatents.filter((p: any) => 
+      p.publication_number?.startsWith('BR') || 
+      p.country === 'BR'
+    )
+    
     const expirations = patents
       .map((p: any) => p.expiration_date)
       .filter(Boolean)

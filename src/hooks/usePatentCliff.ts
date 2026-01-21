@@ -97,8 +97,14 @@ export function usePatentCliff() {
           const docData = doc.data()
           
           try {
-            // Extrair patentes brasileiras
-            const patents = docData.patent_discovery?.brazilian_patents || []
+            // Extrair patentes (all_patents agora)
+            const allPatents = docData.patent_discovery?.all_patents || []
+            
+            // Filtrar apenas brasileiras
+            const patents = allPatents.filter((p: any) => 
+              p.publication_number?.startsWith('BR') || 
+              p.country === 'BR'
+            )
             
             if (patents.length === 0) {
               console.log(`  ⚠️ ${docData.molecule}: sem patentes brasileiras`)
