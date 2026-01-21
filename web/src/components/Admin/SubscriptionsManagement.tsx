@@ -146,6 +146,31 @@ export function SubscriptionsManagement() {
         updatedAt: new Date()
       })
       
+      // NOVO: Sincronizar planos dos usuários vinculados
+      if (editingSub.userIds && editingSub.userIds.length > 0) {
+        console.log(`🔄 Sincronizando planos de ${editingSub.userIds.length} usuários...`)
+        
+        for (const userId of editingSub.userIds) {
+          try {
+            // Atualizar users/{uid}/plan/current
+            await updateDoc(doc(db, 'users', userId, 'plan', 'current'), {
+              searchesLimit: editingSub.searchesPerUser,
+              updatedAt: new Date()
+            })
+            
+            // Atualizar userPlans também
+            await updateDoc(doc(db, 'userPlans', userId), {
+              searchesLimit: editingSub.searchesPerUser,
+              updatedAt: new Date()
+            })
+          } catch (error) {
+            console.error(`Erro ao atualizar plano do usuário ${userId}:`, error)
+          }
+        }
+        
+        console.log('✅ Planos sincronizados!')
+      }
+      
       toast.success('Assinatura atualizada com sucesso!')
       setShowEdit(false)
       loadData() // Recarregar dados
@@ -162,13 +187,19 @@ export function SubscriptionsManagement() {
       toast.error('Selecione organização e plano')
       return
     }
+    
+    // NOVO: Validar limite de usuários
+    const plan = plans.find(p => p.id === newSub.planId)
+    if (plan && newSub.userIds.length > plan.maxUsers) {
+      toast.error(`Este plano permite no máximo ${plan.maxUsers} usuários!`)
+      return
+    }
 
     console.log('📝 Criando assinatura:', newSub)
 
     setSaving(true)
     try {
       const org = organizations.find(o => o.id === newSub.organizationId)
-      const plan = plans.find(p => p.id === newSub.planId)
 
       const startDate = new Date()
       const endDate = new Date()
@@ -207,7 +238,7 @@ export function SubscriptionsManagement() {
           try {
             console.log(`  Vinculando usuário: ${userId}`)
             
-            // Verificar se userPlan existe
+            // 1. Atualizar userPlans (sistema antigo)
             const userPlanRef = doc(db, 'userPlans', userId)
             const userPlanSnap = await getDocs(collection(db, 'userPlans'))
             const userPlanExists = userPlanSnap.docs.some(d => d.id === userId)
@@ -242,6 +273,22 @@ export function SubscriptionsManagement() {
               })
               console.log(`  ✅ Usuário ${userId} vinculado (criado novo)`)
             }
+            
+            // 2. NOVO: Atualizar users/{uid}/plan/current (sistema novo)
+            const userPlanCurrentRef = doc(db, 'users', userId, 'plan', 'current')
+            await setDoc(userPlanCurrentRef, {
+              tier: 'subscription',
+              searchesUsed: 0,
+              searchesLimit: plan.searchesPerUser,
+              createdAt: new Date(),
+              searchHistory: [],
+              subscriptionId: subRef.id,
+              organizationId: org.id,
+              planName: plan.name
+            }, { merge: true })
+            
+            console.log(`  ✅ Plano do usuário ${userId} sincronizado`)
+            
           } catch (userError) {
             console.error(`  ❌ Erro ao vincular usuário ${userId}:`, userError)
             // Continua para próximo usuário mesmo com erro
@@ -549,8 +596,20 @@ export function SubscriptionsManagement() {
                       <input
                         type="checkbox"
                         checked={newSub.userIds.includes(user.id)}
+                        disabled={
+                          !newSub.userIds.includes(user.id) && 
+                          newSub.planId &&
+                          newSub.userIds.length >= (plans.find(p => p.id === newSub.planId)?.maxUsers || 0)
+                        }
                         onChange={(e) => {
+                          const selectedPlan = plans.find(p => p.id === newSub.planId)
+                          
                           if (e.target.checked) {
+                            // Validar limite ANTES de adicionar
+                            if (selectedPlan && newSub.userIds.length >= selectedPlan.maxUsers) {
+                              toast.error(`Máximo de ${selectedPlan.maxUsers} usuários para este plano!`)
+                              return
+                            }
                             setNewSub({ ...newSub, userIds: [...newSub.userIds, user.id] })
                           } else {
                             setNewSub({ ...newSub, userIds: newSub.userIds.filter(id => id !== user.id) })
