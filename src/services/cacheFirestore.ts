@@ -22,6 +22,13 @@ interface CacheIndex {
   lastUpdated: Timestamp
   totalPatents: number
   searchCount: number
+  patent_cliff?: {
+    earliest_expiration: string | null
+    latest_expiration: string | null
+    total_br_patents: number
+    status: string  // 'active' | 'warning' | 'critical' | 'expired'
+    computed_at: string
+  }
 }
 
 /**
@@ -127,14 +134,55 @@ export async function saveToCacheFirestore(
     console.log('  📍 Collection 2: patent_cache_data')
     console.log('  🔑 Key:', cacheKey)
     
-    // 1. Save index (light metadata)
+    // Extract and calculate patent cliff data
+    const patents = result.patent_discovery?.brazilian_patents || []
+    const expirations = patents
+      .map((p: any) => p.expiration_date)
+      .filter(Boolean)
+      .sort()
+    
+    const earliestExpiration = expirations[0] || null
+    const latestExpiration = expirations[expirations.length - 1] || null
+    
+    // Calculate status based on earliest expiration
+    let cliffStatus = 'active'
+    if (earliestExpiration) {
+      const daysUntil = Math.floor(
+        (new Date(earliestExpiration).getTime() - Date.now()) 
+        / (1000 * 60 * 60 * 24)
+      )
+      if (daysUntil < 0) {
+        cliffStatus = 'expired'
+      } else if (daysUntil < 365) {
+        cliffStatus = 'critical'  // < 1 year
+      } else if (daysUntil < 365 * 3) {
+        cliffStatus = 'warning'   // < 3 years
+      }
+    }
+    
+    // 1. Save index (light metadata + patent cliff)
     const index: CacheIndex = {
       molecule,
       countries,
       lastUpdated: now,
       totalPatents: result.patent_discovery?.summary?.total_patents || 0,
-      searchCount: 1
+      searchCount: 1,
+      
+      // 🆕 PATENT CLIFF DATA (pre-computed)
+      patent_cliff: {
+        earliest_expiration: earliestExpiration,
+        latest_expiration: latestExpiration,
+        total_br_patents: patents.length,
+        status: cliffStatus,
+        computed_at: new Date().toISOString()
+      }
     }
+    
+    console.log('  📊 Patent Cliff:', {
+      earliest: earliestExpiration,
+      status: cliffStatus,
+      patents: patents.length
+    })
     
     await setDoc(doc(db, 'patent_cache_index', cacheKey), index)
     console.log('  ✅ Saved to patent_cache_index')
