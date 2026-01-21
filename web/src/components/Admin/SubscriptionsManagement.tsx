@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { FileText, Plus, Edit, Trash2, Pause, Play, Loader2, Calendar } from 'lucide-react'
+import { FileText, Plus, Edit, Trash2, Pause, Play, Loader2, Calendar, Save } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface Subscription {
@@ -789,318 +789,653 @@ export function SubscriptionsManagement() {
         </DialogContent>
       </Dialog>
 
-      {/* NOVO: Modal de Detalhes */}
+      {/* NOVO: Modal de Detalhes - LAYOUT COMPLETO */}
       <Dialog open={showDetails} onOpenChange={setShowDetails}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Detalhes da Assinatura</DialogTitle>
-            <DialogDescription>
-              {selectedSub?.organizationName}
+        <DialogContent className="max-w-4xl h-[95vh] flex flex-col p-0">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b">
+            <DialogTitle className="text-2xl">Detalhes da Assinatura</DialogTitle>
+            <DialogDescription className="flex items-center gap-2 mt-2">
+              <Badge className={getStatusColor(selectedSub?.status || 'active')}>
+                {getStatusLabel(selectedSub?.status || 'active')}
+              </Badge>
+              <span className="text-muted-foreground">•</span>
+              <span>{selectedSub?.organizationName}</span>
             </DialogDescription>
           </DialogHeader>
           
           {selectedSub && (
-            <div className="space-y-4">
-              {/* Informações Gerais */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm">Informações</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Empresa:</span>
-                    <span className="font-medium">{selectedSub.organizationName}</span>
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              <div className="space-y-6">
+                {/* Seção: Informações Gerais */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold border-b pb-2">Informações Gerais</h3>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 rounded-lg border bg-card">
+                      <div className="text-sm text-muted-foreground mb-1">Organização</div>
+                      <div className="text-lg font-semibold">{selectedSub.organizationName}</div>
+                    </div>
+                    
+                    <div className="p-4 rounded-lg border bg-card">
+                      <div className="text-sm text-muted-foreground mb-1">Plano Contratado</div>
+                      <div className="text-lg font-semibold flex items-center gap-2">
+                        📦 {selectedSub.planName}
+                      </div>
+                    </div>
+                    
+                    <div className="p-4 rounded-lg border bg-card">
+                      <div className="text-sm text-muted-foreground mb-1">Status</div>
+                      <div className="text-lg font-semibold">
+                        <Badge className={getStatusColor(selectedSub.status)}>
+                          {getStatusLabel(selectedSub.status)}
+                        </Badge>
+                      </div>
+                    </div>
+                    
+                    <div className="p-4 rounded-lg border bg-card">
+                      <div className="text-sm text-muted-foreground mb-1">Preço Mensal</div>
+                      <div className="text-lg font-semibold text-green-600">
+                        R$ {selectedSub.monthlyPrice?.toLocaleString('pt-BR', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2
+                        })}
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Plano:</span>
-                    <span className="font-medium">{selectedSub.planName}</span>
+                </div>
+
+                {/* Seção: Período */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold border-b pb-2">Período da Assinatura</h3>
+                  
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="p-4 rounded-lg border bg-card">
+                      <div className="text-sm text-muted-foreground mb-1">Data de Início</div>
+                      <div className="font-semibold flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-primary" />
+                        {selectedSub.startDate?.toLocaleDateString('pt-BR')}
+                      </div>
+                    </div>
+                    
+                    <div className="p-4 rounded-lg border bg-card">
+                      <div className="text-sm text-muted-foreground mb-1">Data de Término</div>
+                      <div className="font-semibold flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-primary" />
+                        {selectedSub.endDate?.toLocaleDateString('pt-BR')}
+                      </div>
+                    </div>
+                    
+                    <div className="p-4 rounded-lg border bg-card">
+                      <div className="text-sm text-muted-foreground mb-1">Dias Restantes</div>
+                      <div className="font-semibold">
+                        {selectedSub.endDate
+                          ? Math.ceil(
+                              (selectedSub.endDate.getTime() - new Date().getTime()) /
+                              (1000 * 60 * 60 * 24)
+                            )
+                          : 0}{' '}
+                        dias
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Status:</span>
-                    <Badge className={getStatusColor(selectedSub.status)}>
-                      {getStatusLabel(selectedSub.status)}
-                    </Badge>
+                </div>
+
+                {/* Seção: Limites e Uso */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold border-b pb-2">Limites e Uso</h3>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 rounded-lg border bg-card">
+                      <div className="text-sm text-muted-foreground mb-1">Usuários</div>
+                      <div className="text-2xl font-bold">
+                        {selectedSub.userIds?.length || 0}
+                        <span className="text-base font-normal text-muted-foreground">
+                          {' '}/ {selectedSub.maxUsers}
+                        </span>
+                      </div>
+                      <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+                        <div
+                          className="bg-primary h-2 rounded-full transition-all"
+                          style={{
+                            width: `${Math.min(
+                              ((selectedSub.userIds?.length || 0) / selectedSub.maxUsers) * 100,
+                              100
+                            )}%`
+                          }}
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="p-4 rounded-lg border bg-card">
+                      <div className="text-sm text-muted-foreground mb-1">Buscas por Usuário</div>
+                      <div className="text-2xl font-bold">{selectedSub.searchesPerUser}</div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Total: {selectedSub.maxUsers * selectedSub.searchesPerUser} buscas
+                      </div>
+                    </div>
+                    
+                    <div className="p-4 rounded-lg border bg-card col-span-2">
+                      <div className="text-sm text-muted-foreground mb-1">Uso Total de Buscas</div>
+                      <div className="text-2xl font-bold">
+                        {selectedSub.totalSearchesUsed || 0}
+                        <span className="text-base font-normal text-muted-foreground">
+                          {' '}/ {selectedSub.maxUsers * selectedSub.searchesPerUser}
+                        </span>
+                      </div>
+                      <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+                        <div
+                          className="bg-green-600 h-2 rounded-full transition-all"
+                          style={{
+                            width: `${Math.min(
+                              ((selectedSub.totalSearchesUsed || 0) /
+                                (selectedSub.maxUsers * selectedSub.searchesPerUser)) *
+                                100,
+                              100
+                            )}%`
+                          }}
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Preço Mensal:</span>
-                    <span className="font-medium">
-                      R$ {selectedSub.monthlyPrice?.toLocaleString('pt-BR')}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              {/* Datas */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm">Período</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Início:</span>
-                    <span>{selectedSub.startDate?.toLocaleDateString('pt-BR')}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Fim:</span>
-                    <span>{selectedSub.endDate?.toLocaleDateString('pt-BR')}</span>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              {/* Usuários */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm">
-                    Usuários ({selectedSub.userIds?.length || 0}/{selectedSub.maxUsers})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
+                </div>
+
+                {/* Seção: Usuários Vinculados */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold border-b pb-2">
+                    Usuários Vinculados ({selectedSub.userIds?.length || 0})
+                  </h3>
+                  
                   {selectedSub.userIds && selectedSub.userIds.length > 0 ? (
-                    <div className="space-y-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       {selectedSub.userIds.map((userId, i) => {
                         const userEmail = selectedSub.userEmails?.[i]
                         const user = users.find(u => u.id === userId)
                         
                         return (
-                          <div key={i} className="flex items-center gap-2 p-2 rounded bg-muted/50">
-                            <div className="flex-1">
-                              <div className="text-sm font-medium">
-                                {user?.displayName || userEmail || userId}
+                          <div
+                            key={i}
+                            className="flex items-center gap-3 p-4 rounded-lg border bg-card hover:shadow-md transition-shadow"
+                          >
+                            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                              <span className="text-lg font-semibold text-primary">
+                                {(user?.displayName || userEmail || '?')[0].toUpperCase()}
+                              </span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium truncate">
+                                {user?.displayName || userEmail || `Usuário ${i + 1}`}
                               </div>
                               {user?.displayName && userEmail && (
-                                <div className="text-xs text-muted-foreground">{userEmail}</div>
+                                <div className="text-sm text-muted-foreground truncate">
+                                  {userEmail}
+                                </div>
+                              )}
+                              {!userEmail && (
+                                <div className="text-xs text-muted-foreground">
+                                  ID: {userId.substring(0, 8)}...
+                                </div>
                               )}
                             </div>
-                            <Badge variant="secondary" className="text-xs">Ativo</Badge>
+                            <Badge variant="secondary" className="shrink-0">
+                              Ativo
+                            </Badge>
                           </div>
                         )
                       })}
                     </div>
                   ) : (
-                    <div className="text-sm text-muted-foreground py-4 text-center">
-                      ⚠️ Nenhum usuário vinculado ainda
+                    <div className="text-center py-12 border-2 border-dashed rounded-lg bg-muted/20">
+                      <div className="text-4xl mb-2">👥</div>
+                      <div className="text-lg font-medium text-muted-foreground">
+                        Nenhum usuário vinculado
+                      </div>
+                      <div className="text-sm text-muted-foreground mt-1">
+                        Esta assinatura ainda não possui usuários vinculados
+                      </div>
                     </div>
                   )}
-                </CardContent>
-              </Card>
-              
-              {/* Uso */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm">Uso de Buscas</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Total de buscas:</span>
-                    <span className="font-medium">{selectedSub.totalSearchesUsed || 0}</span>
+                </div>
+
+                {/* Seção: Resumo Financeiro */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold border-b pb-2">Resumo Financeiro</h3>
+                  
+                  <div className="p-6 rounded-lg bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 border-2 border-green-200 dark:border-green-800">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <div className="text-sm text-muted-foreground mb-1">Valor Mensal</div>
+                        <div className="text-2xl font-bold text-green-600">
+                          R$ {selectedSub.monthlyPrice?.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2
+                          })}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground mb-1">Valor por Usuário</div>
+                        <div className="text-xl font-semibold">
+                          R$ {(selectedSub.monthlyPrice / Math.max(selectedSub.maxUsers, 1)).toLocaleString('pt-BR', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2
+                          })}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground mb-1">Custo por Busca</div>
+                        <div className="text-xl font-semibold">
+                          R$ {(
+                            selectedSub.monthlyPrice /
+                            (selectedSub.maxUsers * selectedSub.searchesPerUser)
+                          ).toLocaleString('pt-BR', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2
+                          })}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground mb-1">Duração</div>
+                        <div className="text-xl font-semibold">
+                          {selectedSub.startDate && selectedSub.endDate
+                            ? Math.ceil(
+                                (selectedSub.endDate.getTime() - selectedSub.startDate.getTime()) /
+                                (1000 * 60 * 60 * 24 * 30)
+                              )
+                            : 0}{' '}
+                          mês(es)
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Buscas por usuário:</span>
-                    <span className="font-medium">{selectedSub.searchesPerUser}</span>
-                  </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </div>
           )}
           
-          <div className="flex gap-2 justify-end mt-4">
-            <Button variant="outline" onClick={() => setShowDetails(false)}>
-              Fechar
-            </Button>
-            <Button onClick={() => {
-              setShowDetails(false)
-              editSubscription(selectedSub!)
-            }}>
-              Editar
-            </Button>
+          {/* Footer fixo */}
+          <div className="border-t px-6 py-4 bg-muted/30">
+            <div className="flex gap-3 justify-end">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowDetails(false)}
+              >
+                Fechar
+              </Button>
+              <Button 
+                onClick={() => {
+                  setShowDetails(false)
+                  editSubscription(selectedSub!)
+                }}
+                className="gap-2"
+              >
+                <Edit className="w-4 h-4" />
+                Editar Assinatura
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* NOVO: Modal de Edição */}
+      {/* NOVO: Modal de Edição - LAYOUT COMPLETO */}
       <Dialog open={showEdit} onOpenChange={setShowEdit}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">{/*Aumentado de max-w-md*/}
-          <DialogHeader>
-            <DialogTitle>Editar Assinatura</DialogTitle>
+        <DialogContent className="max-w-4xl h-[95vh] flex flex-col p-0">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b">
+            <DialogTitle className="text-2xl">Editar Assinatura</DialogTitle>
             <DialogDescription>
-              {editingSub?.organizationName}
+              {editingSub?.organizationName} - {editingSub?.planName}
             </DialogDescription>
           </DialogHeader>
           
           {editingSub && (
-            <div className="space-y-4">
-              <div>
-                <Label>Status</Label>
-                <select
-                  className="w-full border rounded p-2 mt-1"
-                  value={editingSub.status}
-                  onChange={(e) => setEditingSub({
-                    ...editingSub,
-                    status: e.target.value as any
-                  })}
-                >
-                  <option value="active">Ativo</option>
-                  <option value="paused">Pausado</option>
-                  <option value="cancelled">Cancelado</option>
-                  <option value="expired">Expirado</option>
-                </select>
-              </div>
-              
-              <div>
-                <Label>Preço Mensal (R$)</Label>
-                <Input
-                  type="number"
-                  value={editingSub.monthlyPrice}
-                  onChange={(e) => setEditingSub({
-                    ...editingSub,
-                    monthlyPrice: parseFloat(e.target.value)
-                  })}
-                  className="mt-1"
-                />
-              </div>
-              
-              <div>
-                <Label>Máximo de Usuários</Label>
-                <Input
-                  type="number"
-                  value={editingSub.maxUsers}
-                  onChange={(e) => setEditingSub({
-                    ...editingSub,
-                    maxUsers: parseInt(e.target.value)
-                  })}
-                  className="mt-1"
-                />
-              </div>
-              
-              {/* REMOVIDO: Campo "Buscas por Usuário" - redundante, definido pelo plano */}
-              {/* Info: O limite de buscas é definido pelo plano contratado */}
-              <div className="p-3 bg-muted/50 rounded-md">
-                <div className="text-xs text-muted-foreground">
-                  <strong>Buscas por Usuário:</strong> {editingSub.searchesPerUser}
-                  <span className="block mt-1">
-                    (Definido pelo plano "{editingSub.planName}")
-                  </span>
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              <div className="space-y-6">
+                {/* Seção: Informações Básicas */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold border-b pb-2">Informações Básicas</h3>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Organização</Label>
+                      <Input
+                        value={editingSub.organizationName}
+                        disabled
+                        className="bg-muted"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Não editável - definido na criação
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Plano</Label>
+                      <Input
+                        value={editingSub.planName}
+                        disabled
+                        className="bg-muted"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Não editável - definido na criação
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Status</Label>
+                      <select
+                        className="w-full border rounded-md px-3 py-2 bg-background"
+                        value={editingSub.status}
+                        onChange={(e) => setEditingSub({
+                          ...editingSub,
+                          status: e.target.value as any
+                        })}
+                      >
+                        <option value="active">Ativo</option>
+                        <option value="paused">Pausado</option>
+                        <option value="cancelled">Cancelado</option>
+                        <option value="expired">Expirado</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Preço Mensal (R$)</Label>
+                      <Input
+                        type="number"
+                        value={editingSub.monthlyPrice}
+                        onChange={(e) => setEditingSub({
+                          ...editingSub,
+                          monthlyPrice: parseFloat(e.target.value)
+                        })}
+                      />
+                    </div>
+                  </div>
                 </div>
-              </div>
-              
-              <div>
-                <Label>Data de Fim</Label>
-                <Input
-                  type="date"
-                  value={editingSub.endDate?.toISOString().split('T')[0]}
-                  onChange={(e) => setEditingSub({
-                    ...editingSub,
-                    endDate: new Date(e.target.value)
-                  })}
-                  className="mt-1"
-                />
-              </div>
-              
-              {/* NOVO: Seção de Usuários Vinculados */}
-              <div className="pt-4 border-t">
-                <Label>Usuários Vinculados</Label>
-                <div className="border rounded-md p-3 max-h-60 overflow-y-auto space-y-2 mt-2 bg-muted/30">
-                  {users.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Nenhum usuário disponível</p>
-                  ) : (
-                    users.map(user => {
-                      const isSelected = editingSub.userIds?.includes(user.id) || false
-                      const maxUsersReached = (editingSub.userIds?.length || 0) >= editingSub.maxUsers
-                      const isDisabled = !isSelected && maxUsersReached
-                      
-                      return (
-                        <label 
-                          key={user.id} 
-                          className={`flex items-center gap-2 p-2 rounded cursor-pointer transition-colors ${
-                            isDisabled 
-                              ? 'opacity-50 cursor-not-allowed bg-muted' 
-                              : 'hover:bg-background'
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            disabled={isDisabled}
-                            onChange={async (e) => {
-                              if (e.target.checked) {
-                                // Validar se já está em outra assinatura
-                                const existingSubs = await checkUserInOtherSubscriptions(user.id, editingSub.id)
-                                
-                                if (existingSubs.length > 0) {
-                                  const confirmed = window.confirm(
-                                    `⚠️ O usuário ${user.email} já está vinculado à:\n\n` +
-                                    `📋 ${existingSubs[0].organizationName} - ${existingSubs[0].planName}\n\n` +
-                                    `Deseja MIGRAR para esta assinatura?`
-                                  )
-                                  
-                                  if (!confirmed) {
-                                    toast.info('Operação cancelada')
-                                    return
+
+                {/* Seção: Limites e Quotas */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold border-b pb-2">Limites e Quotas</h3>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Máximo de Usuários</Label>
+                      <Input
+                        type="number"
+                        value={editingSub.maxUsers}
+                        onChange={(e) => setEditingSub({
+                          ...editingSub,
+                          maxUsers: parseInt(e.target.value)
+                        })}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Quantidade máxima de usuários permitidos
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Buscas por Usuário</Label>
+                      <Input
+                        value={editingSub.searchesPerUser}
+                        disabled
+                        className="bg-muted"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Definido pelo plano "{editingSub.planName}"
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-md border border-blue-200 dark:border-blue-800">
+                    <div className="text-sm">
+                      <div className="font-medium mb-2">📊 Resumo de Quotas:</div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <span className="text-muted-foreground">Total de buscas:</span>
+                          <span className="ml-2 font-semibold">
+                            {editingSub.maxUsers * editingSub.searchesPerUser}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Buscas usadas:</span>
+                          <span className="ml-2 font-semibold">
+                            {editingSub.totalSearchesUsed || 0}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Seção: Período */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold border-b pb-2">Período da Assinatura</h3>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Data de Início</Label>
+                      <Input
+                        type="date"
+                        value={editingSub.startDate?.toISOString().split('T')[0]}
+                        disabled
+                        className="bg-muted"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Não editável - definido na criação
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Data de Fim</Label>
+                      <Input
+                        type="date"
+                        value={editingSub.endDate?.toISOString().split('T')[0]}
+                        onChange={(e) => setEditingSub({
+                          ...editingSub,
+                          endDate: new Date(e.target.value)
+                        })}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Data de expiração da assinatura
+                      </p>
+                    </div>
+                  </div>
+
+                  {editingSub.endDate && (
+                    <div className="p-3 bg-muted rounded-md">
+                      <div className="text-sm">
+                        <span className="text-muted-foreground">Duração total:</span>
+                        <span className="ml-2 font-semibold">
+                          {editingSub.startDate && editingSub.endDate
+                            ? Math.ceil(
+                                (editingSub.endDate.getTime() - editingSub.startDate.getTime()) /
+                                (1000 * 60 * 60 * 24 * 30)
+                              )
+                            : 0}{' '}
+                          mês(es)
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Seção: Usuários Vinculados */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold border-b pb-2">
+                    Usuários Vinculados ({editingSub.userIds?.length || 0}/{editingSub.maxUsers})
+                  </h3>
+                  
+                  <div className="border rounded-lg p-4 bg-muted/30 max-h-80 overflow-y-auto">
+                    {users.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-8">
+                        Nenhum usuário disponível no sistema
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {users.map(user => {
+                          const isSelected = editingSub.userIds?.includes(user.id) || false
+                          const maxUsersReached = (editingSub.userIds?.length || 0) >= editingSub.maxUsers
+                          const isDisabled = !isSelected && maxUsersReached
+                          
+                          return (
+                            <label 
+                              key={user.id} 
+                              className={`flex items-center gap-3 p-3 rounded-md transition-all ${
+                                isDisabled 
+                                  ? 'opacity-50 cursor-not-allowed bg-muted' 
+                                  : 'cursor-pointer hover:bg-background border border-transparent hover:border-primary/20'
+                              } ${isSelected ? 'bg-primary/5 border-primary/30' : ''}`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                disabled={isDisabled}
+                                onChange={async (e) => {
+                                  if (e.target.checked) {
+                                    // Validar se já está em outra assinatura
+                                    const existingSubs = await checkUserInOtherSubscriptions(user.id, editingSub.id)
+                                    
+                                    if (existingSubs.length > 0) {
+                                      const confirmed = window.confirm(
+                                        `⚠️ O usuário ${user.email} já está vinculado à:\n\n` +
+                                        `📋 ${existingSubs[0].organizationName} - ${existingSubs[0].planName}\n\n` +
+                                        `Deseja MIGRAR para esta assinatura?`
+                                      )
+                                      
+                                      if (!confirmed) {
+                                        toast.info('Operação cancelada')
+                                        return
+                                      }
+                                      
+                                      // Migrar
+                                      await migrateUserBetweenSubscriptions(user.id, existingSubs[0].id, editingSub.id)
+                                    }
+                                    
+                                    // Adicionar
+                                    setEditingSub({
+                                      ...editingSub,
+                                      userIds: [...(editingSub.userIds || []), user.id]
+                                    })
+                                    toast.success(`✓ ${user.email} adicionado`)
+                                  } else {
+                                    // Remover
+                                    setEditingSub({
+                                      ...editingSub,
+                                      userIds: (editingSub.userIds || []).filter(id => id !== user.id)
+                                    })
+                                    toast.success(`✓ ${user.email} removido`)
                                   }
-                                  
-                                  // Migrar
-                                  await migrateUserBetweenSubscriptions(user.id, existingSubs[0].id, editingSub.id)
-                                }
-                                
-                                // Adicionar
-                                setEditingSub({
-                                  ...editingSub,
-                                  userIds: [...(editingSub.userIds || []), user.id]
-                                })
-                                toast.success(`Usuário ${user.email} adicionado`)
-                              } else {
-                                // Remover
-                                setEditingSub({
-                                  ...editingSub,
-                                  userIds: (editingSub.userIds || []).filter(id => id !== user.id)
-                                })
-                                toast.success(`Usuário ${user.email} removido`)
-                              }
-                            }}
-                            className="w-4 h-4"
-                          />
-                          <div className="flex-1">
-                            <div className="text-sm font-medium">
-                              {user.displayName || user.email}
-                            </div>
-                            {user.displayName && (
-                              <div className="text-xs text-muted-foreground">{user.email}</div>
-                            )}
-                          </div>
-                          {isSelected && (
-                            <Badge variant="secondary" className="text-xs">Vinculado</Badge>
-                          )}
-                        </label>
-                      )
-                    })
-                  )}
+                                }}
+                                className="w-5 h-5"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium truncate">
+                                  {user.displayName || user.email}
+                                </div>
+                                {user.displayName && (
+                                  <div className="text-xs text-muted-foreground truncate">
+                                    {user.email}
+                                  </div>
+                                )}
+                              </div>
+                              {isSelected && (
+                                <Badge variant="secondary" className="text-xs shrink-0">
+                                  Vinculado
+                                </Badge>
+                              )}
+                            </label>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md text-sm">
+                    <div>
+                      <span className="text-muted-foreground">
+                        Usuários selecionados:
+                      </span>
+                      <span className="ml-2 font-semibold">
+                        {editingSub.userIds?.length || 0} de {editingSub.maxUsers}
+                      </span>
+                    </div>
+                    {(editingSub.userIds?.length || 0) >= editingSub.maxUsers && (
+                      <Badge variant="outline" className="text-amber-600 border-amber-600">
+                        ⚠️ Limite atingido
+                      </Badge>
+                    )}
+                  </div>
                 </div>
-                <div className="mt-2 text-xs text-muted-foreground flex items-center justify-between">
-                  <span>
-                    {editingSub.userIds?.length || 0} de {editingSub.maxUsers} usuários vinculados
-                  </span>
-                  {(editingSub.userIds?.length || 0) >= editingSub.maxUsers && (
-                    <span className="text-amber-600 font-medium">⚠️ Limite atingido</span>
-                  )}
+
+                {/* Seção: Resumo Final */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold border-b pb-2">Resumo</h3>
+                  
+                  <div className="p-4 bg-gradient-to-r from-primary/10 to-primary/5 rounded-lg border border-primary/20">
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <div className="text-muted-foreground">Organização:</div>
+                        <div className="font-semibold">{editingSub.organizationName}</div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">Plano:</div>
+                        <div className="font-semibold">{editingSub.planName}</div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">Status:</div>
+                        <div className="font-semibold capitalize">{editingSub.status}</div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">Preço:</div>
+                        <div className="font-semibold">
+                          R$ {editingSub.monthlyPrice?.toLocaleString('pt-BR')}/mês
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">Usuários:</div>
+                        <div className="font-semibold">
+                          {editingSub.userIds?.length || 0} de {editingSub.maxUsers}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">Período:</div>
+                        <div className="font-semibold">
+                          {editingSub.startDate?.toLocaleDateString('pt-BR')} até{' '}
+                          {editingSub.endDate?.toLocaleDateString('pt-BR')}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           )}
           
-          <div className="flex gap-2 justify-end mt-4">
-            <Button variant="outline" onClick={() => setShowEdit(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleUpdate} disabled={saving}>
-              {saving ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Salvando...
-                </>
-              ) : (
-                'Salvar'
-              )}
-            </Button>
+          {/* Footer fixo */}
+          <div className="border-t px-6 py-4 bg-muted/30">
+            <div className="flex gap-3 justify-end">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowEdit(false)}
+                disabled={saving}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                onClick={handleUpdate} 
+                disabled={saving}
+                className="min-w-[120px]"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    Salvar Alterações
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
