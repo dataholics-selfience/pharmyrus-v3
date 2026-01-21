@@ -223,9 +223,28 @@ export function SubscriptionsManagement() {
         
         for (const userId of editingSub.userIds) {
           try {
+            // ✅ CRÍTICO: Buscar searchesUsed atual ANTES de atualizar
+            const userPlanRef = doc(db, 'userPlans', userId)
+            const userPlanSnap = await getDoc(userPlanRef)
+            const currentSearchesUsed = userPlanSnap.exists() 
+              ? userPlanSnap.data()?.searchesUsed || 0 
+              : 0
+            
+            const planCurrentRef = doc(db, 'users', userId, 'plan', 'current')
+            const planCurrentSnap = await getDoc(planCurrentRef)
+            const currentSearchesUsed2 = planCurrentSnap.exists()
+              ? planCurrentSnap.data()?.searchesUsed || 0
+              : 0
+            
+            // Usar o maior valor entre os dois (mais conservador)
+            const finalSearchesUsed = Math.max(currentSearchesUsed, currentSearchesUsed2)
+            
+            console.log(`  📊 Usuário ${userId}: preservando ${finalSearchesUsed} buscas usadas`)
+            
             // Atualizar users/{uid}/plan/current
-            await setDoc(doc(db, 'users', userId, 'plan', 'current'), {
+            await setDoc(planCurrentRef, {
               tier: 'subscription',
+              searchesUsed: finalSearchesUsed,  // ✅ PRESERVA
               searchesLimit: editingSub.searchesPerUser,
               subscriptionId: editingSub.id,
               organizationId: editingSub.organizationId,
@@ -234,14 +253,18 @@ export function SubscriptionsManagement() {
             }, { merge: true })
             
             // Atualizar userPlans também
-            await setDoc(doc(db, 'userPlans', userId), {
+            await setDoc(userPlanRef, {
               subscriptionId: editingSub.id,
+              searchesUsed: finalSearchesUsed,  // ✅ PRESERVA
               searchesLimit: editingSub.searchesPerUser,
               organizationId: editingSub.organizationId,
               planId: editingSub.planId,
               planName: plan?.name || editingSub.planName,
+              status: editingSub.status,  // ✅ Atualiza status também
               updatedAt: new Date()
             }, { merge: true })
+            
+            console.log(`  ✅ Usuário ${userId} sincronizado`)
           } catch (error) {
             console.error(`Erro ao atualizar plano do usuário ${userId}:`, error)
           }
@@ -387,7 +410,7 @@ export function SubscriptionsManagement() {
                 planId: plan.id,
                 planName: plan.name,
                 role: 'member',
-                searchesUsed: 0,
+                searchesUsed: 0,  // ✅ Começa com 0 para novo usuário
                 searchesLimit: plan.searchesPerUser,
                 status: 'active',
                 createdAt: new Date(),
@@ -398,18 +421,26 @@ export function SubscriptionsManagement() {
             
             // 2. NOVO: Atualizar users/{uid}/plan/current (sistema novo)
             const userPlanCurrentRef = doc(db, 'users', userId, 'plan', 'current')
+            
+            // ✅ CRÍTICO: Buscar searchesUsed atual antes de sobrescrever
+            const currentPlanSnap = await getDoc(userPlanCurrentRef)
+            const currentSearchesUsed = currentPlanSnap.exists() 
+              ? currentPlanSnap.data()?.searchesUsed || 0 
+              : 0
+            
             await setDoc(userPlanCurrentRef, {
               tier: 'subscription',
-              searchesUsed: 0,
+              searchesUsed: currentSearchesUsed,  // ✅ PRESERVA o valor atual!
               searchesLimit: plan.searchesPerUser,
-              createdAt: new Date(),
-              searchHistory: [],
+              createdAt: currentPlanSnap.exists() ? currentPlanSnap.data()?.createdAt : new Date(),
+              searchHistory: currentPlanSnap.exists() ? currentPlanSnap.data()?.searchHistory || [] : [],
               subscriptionId: subRef.id,
               organizationId: org.id,
-              planName: plan.name
+              planName: plan.name,
+              updatedAt: new Date()
             }, { merge: true })
             
-            console.log(`  ✅ Plano do usuário ${userId} sincronizado`)
+            console.log(`  ✅ Plano do usuário ${userId} sincronizado (preservando ${currentSearchesUsed} buscas usadas)`)
             
           } catch (userError) {
             console.error(`  ❌ Erro ao vincular usuário ${userId}:`, userError)

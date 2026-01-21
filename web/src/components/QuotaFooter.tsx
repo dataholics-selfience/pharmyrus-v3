@@ -2,7 +2,7 @@
  * QuotaFooter Component
  * 
  * Rodapé persistente que mostra informações de quota do usuário
- * Aparece em todas as páginas (exceto landing/login)
+ * Aparece APENAS na landing page (tela de busca inicial)
  */
 
 import { useAuth } from '@/hooks/useAuth'
@@ -12,7 +12,7 @@ import { db } from '@/lib/firebase'
 import { QuotaWarning } from './QuotaWarning'
 import { Badge } from './ui/badge'
 import { TrendingUp } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 
 interface QuotaData {
   searchesUsed: number
@@ -24,6 +24,7 @@ interface QuotaData {
 export function QuotaFooter() {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [quotaData, setQuotaData] = useState<QuotaData | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -35,8 +36,8 @@ export function QuotaFooter() {
 
     loadQuotaData()
     
-    // Recarregar a cada 30 segundos
-    const interval = setInterval(loadQuotaData, 30000)
+    // Recarregar a cada 5 segundos (mais rápido para mudanças de plano)
+    const interval = setInterval(loadQuotaData, 5000)
     return () => clearInterval(interval)
   }, [user])
 
@@ -44,7 +45,28 @@ export function QuotaFooter() {
     if (!user) return
 
     try {
-      // Tentar carregar de users/{uid}/plan/current primeiro (sistema novo)
+      // ✅ PRIORIDADE: Carregar de userPlans (sistema de assinaturas)
+      const userPlanRef = doc(db, 'userPlans', user.uid)
+      const userPlanSnap = await getDoc(userPlanRef)
+      
+      if (userPlanSnap.exists()) {
+        const data = userPlanSnap.data()
+        setQuotaData({
+          searchesUsed: data.searchesUsed || 0,
+          searchesLimit: data.searchesLimit || 0,
+          planName: data.planName || 'Básico',
+          tier: 'subscription'
+        })
+        console.log('📊 QuotaFooter loaded from userPlans:', {
+          used: data.searchesUsed || 0,
+          limit: data.searchesLimit || 0,
+          plan: data.planName
+        })
+        setLoading(false)
+        return
+      }
+      
+      // Fallback: users/{uid}/plan/current (sistema antigo)
       const planDocRef = doc(db, 'users', user.uid, 'plan', 'current')
       const planSnap = await getDoc(planDocRef)
       
@@ -56,26 +78,26 @@ export function QuotaFooter() {
           planName: data.planName || 'Básico',
           tier: data.tier || 'free'
         })
-      } else {
-        // Fallback para userPlans (sistema antigo)
-        const userPlanRef = doc(db, 'userPlans', user.uid)
-        const userPlanSnap = await getDoc(userPlanRef)
-        
-        if (userPlanSnap.exists()) {
-          const data = userPlanSnap.data()
-          setQuotaData({
-            searchesUsed: data.searchesUsed || 0,
-            searchesLimit: data.searchesLimit || 1,
-            planName: data.planName || 'Básico',
-            tier: 'subscription'
-          })
-        }
+        console.log('📊 QuotaFooter loaded from users/plan/current:', {
+          used: data.searchesUsed || 0,
+          limit: data.searchesLimit || 1,
+          plan: data.planName
+        })
       }
     } catch (error) {
       console.error('[QuotaFooter] Error loading quota:', error)
     } finally {
       setLoading(false)
     }
+  }
+
+  // ✅ NÃO mostrar em páginas de resultado/dashboard
+  const hiddenPaths = ['/results', '/results/scientific', '/dashboard', '/search']
+  const shouldHide = hiddenPaths.some(path => location.pathname.startsWith(path))
+  
+  if (shouldHide) {
+    console.log('🚫 QuotaFooter oculto em:', location.pathname)
+    return null
   }
 
   // Não mostrar se não estiver logado ou ainda carregando
