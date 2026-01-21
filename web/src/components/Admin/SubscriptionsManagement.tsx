@@ -57,12 +57,12 @@ export function SubscriptionsManagement() {
     try {
       // Load organizations
       const orgsSnapshot = await getDocs(collection(db, 'organizations'))
-      const orgsData = orgsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+      const orgsData = orgsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }))
       setOrganizations(orgsData)
 
       // Load plans
       const plansSnapshot = await getDocs(collection(db, 'plans'))
-      const plansData = plansSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+      const plansData = plansSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }))
       setPlans(plansData)
 
       // Load users
