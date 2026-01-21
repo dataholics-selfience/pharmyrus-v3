@@ -188,18 +188,9 @@ export function QuotaFooter() {
           )}
         </div>
 
-        {/* Alerta de Quota (se necessário) */}
-        {usagePercentage >= 75 && (
-          <div className="mt-2">
-            <QuotaWarning
-              usagePercentage={usagePercentage}
-              searchesUsed={quotaData.searchesUsed}
-              searchesLimit={quotaData.searchesLimit}
-              remainingSearches={remainingSearches}
-              compact
-            />
-          </div>
-        )}
+        {/* ❌ REMOVIDO: QuotaWarning duplicado
+            Já aparece em Search.tsx, não precisa aparecer aqui também
+        */}
       </div>
     </div>
   )

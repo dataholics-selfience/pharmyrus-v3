@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { collection, getDocs, updateDoc, doc, addDoc, deleteDoc } from 'firebase/firestore'
+import { collection, getDocs, updateDoc, doc, addDoc, deleteDoc, getDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { Plan } from '@/types/plans'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -61,6 +61,7 @@ export function PlansManagement() {
 
     setSaving(true)
     try {
+      // 1. Atualizar o plano
       await updateDoc(doc(db, 'plans', editingPlan.id), {
         name: editingPlan.name,
         description: editingPlan.description,
@@ -72,7 +73,70 @@ export function PlansManagement() {
         updatedAt: new Date()
       })
 
-      toast.success('Plano atualizado com sucesso!')
+      // 2. ✅ NOVO: Sincronizar com assinaturas e usuários deste plano
+      console.log('🔄 Sincronizando usuários que usam este plano...')
+      
+      // Buscar assinaturas que usam este plano
+      const subscriptionsSnapshot = await getDocs(collection(db, 'subscriptions'))
+      let usersUpdated = 0
+      
+      for (const subDoc of subscriptionsSnapshot.docs) {
+        const sub = subDoc.data()
+        
+        // Se a assinatura usa este plano
+        if (sub.planId === editingPlan.id) {
+          console.log(`  📋 Assinatura ${subDoc.id} usa este plano`)
+          
+          // Atualizar searchesPerUser na assinatura
+          await updateDoc(doc(db, 'subscriptions', subDoc.id), {
+            searchesPerUser: editingPlan.searchesPerUser,
+            planName: editingPlan.name,
+            updatedAt: new Date()
+          })
+          
+          // Atualizar todos os usuários vinculados a esta assinatura
+          const userIds = sub.userIds || []
+          
+          for (const userId of userIds) {
+            try {
+              // Atualizar userPlans
+              const userPlanRef = doc(db, 'userPlans', userId)
+              const userPlanSnap = await getDoc(userPlanRef)
+              
+              if (userPlanSnap.exists()) {
+                const currentSearchesUsed = userPlanSnap.data()?.searchesUsed || 0
+                
+                await updateDoc(userPlanRef, {
+                  searchesLimit: editingPlan.searchesPerUser,
+                  planName: editingPlan.name,
+                  updatedAt: new Date()
+                })
+                
+                console.log(`    ✅ userPlans/${userId}: ${currentSearchesUsed}/${editingPlan.searchesPerUser}`)
+              }
+              
+              // Atualizar users/{uid}/plan/current
+              const planCurrentRef = doc(db, 'users', userId, 'plan', 'current')
+              const planCurrentSnap = await getDoc(planCurrentRef)
+              
+              if (planCurrentSnap.exists()) {
+                await updateDoc(planCurrentRef, {
+                  searchesLimit: editingPlan.searchesPerUser,
+                  planName: editingPlan.name,
+                  updatedAt: new Date()
+                })
+              }
+              
+              usersUpdated++
+            } catch (error) {
+              console.error(`    ❌ Erro ao atualizar usuário ${userId}:`, error)
+            }
+          }
+        }
+      }
+
+      console.log(`✅ ${usersUpdated} usuário(s) sincronizado(s)`)
+      toast.success(`Plano atualizado! ${usersUpdated} usuário(s) sincronizado(s)`)
       setEditingPlan(null)
       await loadPlans()
     } catch (error) {

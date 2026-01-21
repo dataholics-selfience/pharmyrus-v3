@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Shield, Loader2, AlertCircle } from 'lucide-react'
+import { Search, Shield, Loader2, AlertCircle, TrendingDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CountryMultiSelect } from '@/components/CountryMultiSelect'
 import { SearchHistoryGrid } from '@/components/SearchHistoryGrid'
+import { PatentCliffTimeline } from '@/components/PatentCliffTimeline'
 import { ValidationConfirmDialog } from '@/components/ValidationConfirmDialog'
 import { SearchLimitReached } from '@/components/SearchLimitReached'
 import { useAuth } from '@/hooks/useAuth'
@@ -249,7 +251,7 @@ export function LandingPage() {
       </header>
 
       <main className="flex-1 flex items-center justify-center px-4 py-16">
-        <div className="w-full max-w-2xl space-y-8">
+        <div className="w-full max-w-6xl space-y-8">
           <div className="text-center space-y-4">
             <img 
               src="/logo.png" 
@@ -264,58 +266,113 @@ export function LandingPage() {
             </p>
           </div>
 
-          <Card className="border-border shadow-sm">
-            <CardContent className="pt-6">
-              <form onSubmit={handleSearch} className="space-y-4">
-                <div className="space-y-2">
-                  <Input
-                    type="text"
-                    placeholder="Nome da molécula (ex: darolutamide)"
-                    value={molecule}
-                    onChange={(e) => handleMoleculeChange(e.target.value)}
-                    className="h-12 text-base"
-                    autoFocus
-                  />
-                </div>
+          {/* Tabs: Busca | Histórico | Patent Cliff */}
+          <Tabs defaultValue="search" className="w-full">
+            <TabsList className="grid w-full max-w-md mx-auto grid-cols-3">
+              <TabsTrigger value="search" className="gap-2">
+                <Search className="h-4 w-4" />
+                Busca
+              </TabsTrigger>
+              <TabsTrigger value="history" className="gap-2" disabled={!user}>
+                <Shield className="h-4 w-4" />
+                Histórico
+              </TabsTrigger>
+              <TabsTrigger value="patent-cliff" className="gap-2">
+                <TrendingDown className="h-4 w-4" />
+                Patent Cliff
+              </TabsTrigger>
+            </TabsList>
 
-                <div className="space-y-2">
-                  <Input
-                    type="text"
-                    placeholder="Nome comercial (opcional)"
-                    value={brand}
-                    onChange={(e) => handleBrandChange(e.target.value)}
-                    className="h-12 text-base"
-                  />
-                </div>
+            {/* Tab: Busca */}
+            <TabsContent value="search" className="mt-6">
+              <div className="max-w-2xl mx-auto">
+                <Card className="border-border shadow-sm">
+                  <CardContent className="pt-6">
+                    <form onSubmit={handleSearch} className="space-y-4">
+                      <div className="space-y-2">
+                        <Input
+                          type="text"
+                          placeholder="Nome da molécula (ex: darolutamide)"
+                          value={molecule}
+                          onChange={(e) => handleMoleculeChange(e.target.value)}
+                          className="h-12 text-base"
+                          autoFocus
+                        />
+                      </div>
 
-                <div className="space-y-2">
-                  <CountryMultiSelect
-                    value={countries}
-                    onChange={handleCountriesChange}
-                  />
-                </div>
+                      <div className="space-y-2">
+                        <Input
+                          type="text"
+                          placeholder="Nome comercial (opcional)"
+                          value={brand}
+                          onChange={(e) => handleBrandChange(e.target.value)}
+                          className="h-12 text-base"
+                        />
+                      </div>
 
-                <Button 
-                  type="submit" 
-                  className="w-full h-12 text-base gap-2"
-                  size="lg"
-                  disabled={validating}
-                >
-                  {validating ? (
-                    <>
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                      Validando...
-                    </>
-                  ) : (
-                    <>
-                      <Search className="h-5 w-5" />
-                      Buscar Patentes
-                    </>
-                  )}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
+                      <div className="space-y-2">
+                        <CountryMultiSelect
+                          value={countries}
+                          onChange={handleCountriesChange}
+                        />
+                      </div>
+
+                      <Button 
+                        type="submit" 
+                        className="w-full h-12 text-base gap-2"
+                        size="lg"
+                        disabled={validating}
+                      >
+                        {validating ? (
+                          <>
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                            Validando...
+                          </>
+                        ) : (
+                          <>
+                            <Search className="h-5 w-5" />
+                            Buscar Patentes
+                          </>
+                        )}
+                      </Button>
+                    </form>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            {/* Tab: Histórico */}
+            <TabsContent value="history" className="mt-6">
+              {user ? (
+                <SearchHistoryGrid 
+                  maxItems={12}
+                  onReload={(result) => {
+                    navigate('/results/scientific', { state: { result } })
+                  }}
+                />
+              ) : (
+                <Card className="p-12">
+                  <div className="text-center space-y-4">
+                    <Shield className="h-16 w-16 mx-auto text-muted-foreground opacity-30" />
+                    <div>
+                      <h3 className="text-lg font-semibold">Faça Login</h3>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        O histórico está disponível apenas para usuários logados
+                      </p>
+                    </div>
+                    <Button onClick={() => navigate('/login')}>
+                      Fazer Login
+                    </Button>
+                  </div>
+                </Card>
+              )}
+            </TabsContent>
+
+            {/* Tab: Patent Cliff */}
+            <TabsContent value="patent-cliff" className="mt-6">
+              <PatentCliffTimeline />
+            </TabsContent>
+          </Tabs>
 
           {/* Validation Confirmation Dialog */}
           {validationResult && (
@@ -335,18 +392,6 @@ export function LandingPage() {
               onConfirm={handleValidationConfirm}
               onCancel={handleValidationCancel}
             />
-          )}
-
-          {/* Search History Grid - Phase 6 */}
-          {user && (
-            <div className="mt-8">
-              <SearchHistoryGrid 
-                maxItems={6}
-                onReload={(result) => {
-                  navigate('/results/scientific', { state: { result } })
-                }}
-              />
-            </div>
           )}
         </div>
       </main>

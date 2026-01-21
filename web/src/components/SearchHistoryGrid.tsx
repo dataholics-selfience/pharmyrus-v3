@@ -205,15 +205,9 @@ export function SearchHistoryGrid({ maxItems = 6, onReload }: SearchHistoryGridP
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <History className="h-5 w-5" />
-          <span className="font-medium">Histórico de Buscas</span>
-          <Badge variant="secondary" className="text-xs">
-            {history.length}
-          </Badge>
-        </div>
-      </div>
+      {/* ❌ REMOVIDO: Header "Histórico de Buscas" 
+          Conforme solicitado pelo usuário
+      */}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {history.map((item) => (

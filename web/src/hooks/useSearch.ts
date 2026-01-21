@@ -83,13 +83,13 @@ export function useSearch() {
           setCurrentStep('Carregado do cache!')
           setLoading(false)
           
-          // INCREMENT USAGE (cache CONTA no limite!)
+          // ✅ CACHE CONTA NA QUOTA (revertido conforme solicitado)
           if (user) {
             console.log('📊 Incrementing usage (cache)...')
             await incrementSearchUsage(user.uid, `cached_${Date.now()}`)
           }
           
-          // Save to user history (só se tiver user)
+          // Save to user history
           if (user) {
             await saveSearchToHistory(
               user.uid,
