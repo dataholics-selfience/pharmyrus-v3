@@ -10,6 +10,8 @@ import {
   type Plan,
   type PlanMigration
 } from '@/services/planManagement'
+import { collection, doc, setDoc, serverTimestamp } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -30,7 +32,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Loader2, Edit, Trash2, Users, RefreshCw, AlertTriangle } from 'lucide-react'
+import { Loader2, Edit, Trash2, Users, RefreshCw, AlertTriangle, Plus } from 'lucide-react'
 
 export function AdminPlans() {
   const { user } = useAuth()
@@ -41,6 +43,7 @@ export function AdminPlans() {
   const [userCounts, setUserCounts] = useState<Record<string, number>>({})
   const [cleanupLoading, setCleanupLoading] = useState(false)
   const [migrationStatus, setMigrationStatus] = useState<PlanMigration | null>(null)
+  const [creatingPlan, setCreatingPlan] = useState(false)
 
   useEffect(() => {
     loadPlans()
@@ -127,23 +130,33 @@ export function AdminPlans() {
           </p>
         </div>
 
-        <Button
-          onClick={handleCleanupDuplicates}
-          disabled={cleanupLoading}
-          variant="outline"
-        >
-          {cleanupLoading ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Limpando...
-            </>
-          ) : (
-            <>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Limpar Duplicatas
-            </>
-          )}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => setCreatingPlan(true)}
+            variant="default"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Novo Plano
+          </Button>
+
+          <Button
+            onClick={handleCleanupDuplicates}
+            disabled={cleanupLoading}
+            variant="outline"
+          >
+            {cleanupLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Limpando...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Limpar Duplicatas
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       {/* Migration Status */}
@@ -227,6 +240,38 @@ export function AdminPlans() {
           </Card>
         ))}
       </div>
+
+      {/* Create Dialog */}
+      {creatingPlan && (
+        <CreatePlanDialog
+          onClose={() => setCreatingPlan(false)}
+          onCreate={async (planData) => {
+            if (!user) return
+
+            try {
+              const planRef = doc(collection(db, 'plans'))
+              
+              await setDoc(planRef, {
+                id: planRef.id,
+                ...planData,
+                version: 1,
+                is_active: true,
+                is_visible: true,
+                can_subscribe: true,
+                created_at: serverTimestamp(),
+                created_by: user.uid,
+                version_history: []
+              })
+
+              alert('✅ Plano criado com sucesso!')
+              await loadPlans()
+              setCreatingPlan(false)
+            } catch (error: any) {
+              alert(`❌ Erro ao criar plano: ${error.message}`)
+            }
+          }}
+        />
+      )}
 
       {/* Edit Dialog */}
       {editingPlan && (
@@ -418,6 +463,158 @@ function EditPlanDialog({ plan, userCount, onClose, onSave }: EditPlanDialogProp
               </>
             ) : (
               'Salvar e Sincronizar'
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ============================================
+// CREATE DIALOG
+// ============================================
+
+interface CreatePlanDialogProps {
+  onClose: () => void
+  onCreate: (planData: Partial<Plan>) => Promise<void>
+}
+
+function CreatePlanDialog({ onClose, onCreate }: CreatePlanDialogProps) {
+  const [planId, setPlanId] = useState('')
+  const [name, setName] = useState('')
+  const [displayName, setDisplayName] = useState('')
+  const [searches, setSearches] = useState(30)
+  const [exports, setExports] = useState(50)
+  const [aiAnalysis, setAiAnalysis] = useState(20)
+  const [price, setPrice] = useState(97)
+  const [creating, setCreating] = useState(false)
+
+  const handleCreate = async () => {
+    if (!planId || !name || !displayName) {
+      alert('⚠️ Preencha todos os campos obrigatórios!')
+      return
+    }
+
+    setCreating(true)
+    try {
+      await onCreate({
+        name,
+        display_name: displayName,
+        searches_per_month: searches,
+        exports_per_month: exports,
+        ai_analysis_per_month: aiAnalysis,
+        price,
+        currency: 'BRL',
+        billing_period: 'monthly'
+      })
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Criar Novo Plano</DialogTitle>
+          <DialogDescription>
+            Configure as quotas e o preço do novo plano
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="planId">ID do Plano *</Label>
+            <Input
+              id="planId"
+              value={planId}
+              onChange={(e) => {
+                const val = e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '')
+                setPlanId(val)
+                setName(val)
+              }}
+              placeholder="pro"
+            />
+            <p className="text-xs text-muted-foreground">
+              Apenas letras minúsculas, números, - e _ (ex: free, pro, enterprise)
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="displayName">Nome de Exibição *</Label>
+            <Input
+              id="displayName"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="Plano Pro"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="searches">Consultas/mês</Label>
+              <Input
+                id="searches"
+                type="number"
+                value={searches}
+                onChange={(e) => setSearches(Number(e.target.value))}
+                min={0}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="exports">Exports/mês</Label>
+              <Input
+                id="exports"
+                type="number"
+                value={exports}
+                onChange={(e) => setExports(Number(e.target.value))}
+                min={0}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="aiAnalysis">Análises AI/mês</Label>
+              <Input
+                id="aiAnalysis"
+                type="number"
+                value={aiAnalysis}
+                onChange={(e) => setAiAnalysis(Number(e.target.value))}
+                min={0}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="price">Preço (BRL)</Label>
+              <Input
+                id="price"
+                type="number"
+                value={price}
+                onChange={(e) => setPrice(Number(e.target.value))}
+                min={0}
+              />
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={creating}>
+            Cancelar
+          </Button>
+          <Button 
+            onClick={handleCreate} 
+            disabled={!planId || !displayName || creating}
+          >
+            {creating ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Criando...
+              </>
+            ) : (
+              'Criar Plano'
             )}
           </Button>
         </DialogFooter>
