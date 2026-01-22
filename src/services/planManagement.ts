@@ -37,6 +37,7 @@ export interface Plan {
   searches_per_month: number
   exports_per_month?: number
   ai_analysis_per_month?: number
+  max_users?: number  // Máximo de usuários permitidos no plano
   
   // Pricing
   price: number

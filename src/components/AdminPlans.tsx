@@ -211,6 +211,12 @@ export function AdminPlans() {
                   <span className="text-muted-foreground">Consultas/mês:</span>
                   <span className="font-medium">{plan.searches_per_month}</span>
                 </div>
+                {plan.max_users && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Máx. usuários:</span>
+                    <span className="font-medium">{plan.max_users}</span>
+                  </div>
+                )}
               </div>
 
               {/* Pricing */}
@@ -346,12 +352,14 @@ interface EditPlanDialogProps {
 function EditPlanDialog({ plan, userCount, onClose, onSave }: EditPlanDialogProps) {
   const [displayName, setDisplayName] = useState(plan.display_name)
   const [searches, setSearches] = useState(plan.searches_per_month)
+  const [maxUsers, setMaxUsers] = useState(plan.max_users || 1)
   const [price, setPrice] = useState(plan.price)
   const [saving, setSaving] = useState(false)
 
   const hasChanges = 
     displayName !== plan.display_name ||
     searches !== plan.searches_per_month ||
+    maxUsers !== plan.max_users ||
     price !== plan.price
 
   const handleSave = async () => {
@@ -366,6 +374,9 @@ function EditPlanDialog({ plan, userCount, onClose, onSave }: EditPlanDialogProp
     }
     if (searches !== plan.searches_per_month) {
       changes.push(`- Consultas: ${plan.searches_per_month} → ${searches}`)
+    }
+    if (maxUsers !== plan.max_users) {
+      changes.push(`- Máx. Usuários: ${plan.max_users || 1} → ${maxUsers}`)
     }
     if (price !== plan.price) {
       changes.push(`- Preço: R$ ${plan.price} → R$ ${price}`)
@@ -385,6 +396,7 @@ function EditPlanDialog({ plan, userCount, onClose, onSave }: EditPlanDialogProp
       await onSave({
         display_name: displayName,
         searches_per_month: searches,
+        max_users: maxUsers,
         price
       })
     } finally {
@@ -434,6 +446,20 @@ function EditPlanDialog({ plan, userCount, onClose, onSave }: EditPlanDialogProp
                   ⚠️ {userCount} usuários terão suas quotas atualizadas
                 </span>
               )}
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="maxUsers">Máximo de Usuários</Label>
+            <Input
+              id="maxUsers"
+              type="number"
+              value={maxUsers}
+              onChange={(e) => setMaxUsers(Number(e.target.value))}
+              min={1}
+            />
+            <p className="text-xs text-muted-foreground">
+              Quantidade máxima de usuários (use 999 para ilimitado)
             </p>
           </div>
 
@@ -491,6 +517,7 @@ function CreatePlanDialog({ onClose, onCreate }: CreatePlanDialogProps) {
   const [planId, setPlanId] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [searches, setSearches] = useState(30)
+  const [maxUsers, setMaxUsers] = useState(1)
   const [price, setPrice] = useState(97)
   const [creating, setCreating] = useState(false)
 
@@ -506,6 +533,7 @@ function CreatePlanDialog({ onClose, onCreate }: CreatePlanDialogProps) {
         name: planId,
         display_name: displayName,
         searches_per_month: searches,
+        max_users: maxUsers,
         exports_per_month: 0,
         ai_analysis_per_month: 0,
         price,
@@ -566,6 +594,21 @@ function CreatePlanDialog({ onClose, onCreate }: CreatePlanDialogProps) {
             />
             <p className="text-xs text-muted-foreground">
               Quantidade de buscas permitidas por mês
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="maxUsers">Máximo de Usuários *</Label>
+            <Input
+              id="maxUsers"
+              type="number"
+              value={maxUsers}
+              onChange={(e) => setMaxUsers(Number(e.target.value))}
+              min={1}
+              placeholder="1"
+            />
+            <p className="text-xs text-muted-foreground">
+              Quantidade máxima de usuários permitidos no plano (use 999 para ilimitado)
             </p>
           </div>
 
