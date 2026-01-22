@@ -237,14 +237,15 @@ export function AdminPlans() {
       {creatingPlan && (
         <CreatePlanDialog
           onClose={() => setCreatingPlan(false)}
-          onCreate={async (planData) => {
+          onCreate={async (planId, planData) => {
             if (!user) return
 
             try {
-              const planRef = doc(collection(db, 'plans'))
+              // Usar o planId fornecido pelo usuário, não gerar automático
+              const planRef = doc(db, 'plans', planId)
               
               await setDoc(planRef, {
-                id: planRef.id,
+                id: planId,
                 ...planData,
                 version: 1,
                 is_active: true,
@@ -343,10 +344,15 @@ interface EditPlanDialogProps {
 }
 
 function EditPlanDialog({ plan, userCount, onClose, onSave }: EditPlanDialogProps) {
+  const [displayName, setDisplayName] = useState(plan.display_name)
   const [searches, setSearches] = useState(plan.searches_per_month)
+  const [price, setPrice] = useState(plan.price)
   const [saving, setSaving] = useState(false)
 
-  const hasChanges = searches !== plan.searches_per_month
+  const hasChanges = 
+    displayName !== plan.display_name ||
+    searches !== plan.searches_per_month ||
+    price !== plan.price
 
   const handleSave = async () => {
     if (!hasChanges) {
@@ -354,11 +360,21 @@ function EditPlanDialog({ plan, userCount, onClose, onSave }: EditPlanDialogProp
       return
     }
 
+    const changes: string[] = []
+    if (displayName !== plan.display_name) {
+      changes.push(`- Nome: "${plan.display_name}" → "${displayName}"`)
+    }
+    if (searches !== plan.searches_per_month) {
+      changes.push(`- Consultas: ${plan.searches_per_month} → ${searches}`)
+    }
+    if (price !== plan.price) {
+      changes.push(`- Preço: R$ ${plan.price} → R$ ${price}`)
+    }
+
     const confirmed = confirm(
       `📊 Atualizar ${plan.display_name}?\n\n` +
-      `${userCount} usuários serão sincronizados automaticamente.\n\n` +
-      `Mudança:\n` +
-      `- Consultas: ${plan.searches_per_month} → ${searches}\n` +
+      `${userCount} usuários serão sincronizados ${searches !== plan.searches_per_month ? 'automaticamente' : '(sem mudança de quota)'}.\n\n` +
+      `Mudanças:\n${changes.join('\n')}\n` +
       `\nContinuar?`
     )
 
@@ -367,7 +383,9 @@ function EditPlanDialog({ plan, userCount, onClose, onSave }: EditPlanDialogProp
     setSaving(true)
     try {
       await onSave({
-        searches_per_month: searches
+        display_name: displayName,
+        searches_per_month: searches,
+        price
       })
     } finally {
       setSaving(false)
@@ -380,11 +398,27 @@ function EditPlanDialog({ plan, userCount, onClose, onSave }: EditPlanDialogProp
         <DialogHeader>
           <DialogTitle>Editar Plano: {plan.display_name}</DialogTitle>
           <DialogDescription>
-            Alterações serão sincronizadas automaticamente para todos os usuários
+            Alterações em quotas serão sincronizadas para todos os usuários
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          <Alert>
+            <AlertDescription>
+              <strong>ID:</strong> {plan.id} (não pode ser alterado)
+            </AlertDescription>
+          </Alert>
+
+          <div className="space-y-2">
+            <Label htmlFor="displayName">Nome de Exibição</Label>
+            <Input
+              id="displayName"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="Plano Free, Plano Pro, etc"
+            />
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="searches">Consultas por mês</Label>
             <Input
@@ -395,15 +429,30 @@ function EditPlanDialog({ plan, userCount, onClose, onSave }: EditPlanDialogProp
               min={0}
             />
             <p className="text-xs text-muted-foreground">
-              Quantidade de buscas permitidas por mês
+              {searches !== plan.searches_per_month && userCount > 0 && (
+                <span className="text-orange-600 font-medium">
+                  ⚠️ {userCount} usuários terão suas quotas atualizadas
+                </span>
+              )}
             </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="price">Preço Mensal (BRL)</Label>
+            <Input
+              id="price"
+              type="number"
+              value={price}
+              onChange={(e) => setPrice(Number(e.target.value))}
+              min={0}
+            />
           </div>
 
           {userCount > 0 && (
             <Alert>
               <Users className="h-4 w-4" />
               <AlertDescription>
-                <strong>{userCount} usuários ativos</strong> serão atualizados
+                <strong>{userCount} usuários ativos</strong> neste plano
               </AlertDescription>
             </Alert>
           )}
@@ -420,7 +469,7 @@ function EditPlanDialog({ plan, userCount, onClose, onSave }: EditPlanDialogProp
                 Salvando...
               </>
             ) : (
-              'Salvar e Sincronizar'
+              'Salvar Alterações'
             )}
           </Button>
         </DialogFooter>
@@ -435,27 +484,26 @@ function EditPlanDialog({ plan, userCount, onClose, onSave }: EditPlanDialogProp
 
 interface CreatePlanDialogProps {
   onClose: () => void
-  onCreate: (planData: Partial<Plan>) => Promise<void>
+  onCreate: (planId: string, planData: Partial<Plan>) => Promise<void>
 }
 
 function CreatePlanDialog({ onClose, onCreate }: CreatePlanDialogProps) {
   const [planId, setPlanId] = useState('')
-  const [name, setName] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [searches, setSearches] = useState(30)
   const [price, setPrice] = useState(97)
   const [creating, setCreating] = useState(false)
 
   const handleCreate = async () => {
-    if (!planId || !name || !displayName) {
-      alert('⚠️ Preencha todos os campos obrigatórios!')
+    if (!planId || !displayName) {
+      alert('⚠️ Preencha o ID e o Nome de Exibição!')
       return
     }
 
     setCreating(true)
     try {
-      await onCreate({
-        name,
+      await onCreate(planId, {
+        name: planId,
         display_name: displayName,
         searches_per_month: searches,
         exports_per_month: 0,
@@ -488,7 +536,6 @@ function CreatePlanDialog({ onClose, onCreate }: CreatePlanDialogProps) {
               onChange={(e) => {
                 const val = e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '')
                 setPlanId(val)
-                setName(val)
               }}
               placeholder="free, pro, enterprise"
             />
