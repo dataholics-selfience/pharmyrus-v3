@@ -197,15 +197,28 @@ export function UsersManagement() {
         organizationType: subscriptionId ? 'company' : 'individual',
         subscriptionId,
         planId,
-        planName: selectedPlan?.name || 'Básico',
+        planName: selectedPlan?.name || selectedPlan?.display_name || 'Básico',
         role: 'member',
         searchesUsed: 0,
-        searchesLimit: selectedPlan?.searchesPerUser || 1,
+        searchesLimit: selectedPlan?.searchesPerUser || selectedPlan?.searches_per_month || 30,
         status: 'active',
         createdAt: new Date(),
         updatedAt: new Date()
       })
       console.log('✅ userPlan criado')
+
+      // Também criar users/{uid}/plan/current para compatibilidade
+      await setDoc(doc(db, 'users', uid, 'plan', 'current'), {
+        tier: subscriptionId ? 'subscription' : planId,
+        searchesUsed: 0,
+        searchesLimit: selectedPlan?.searchesPerUser || selectedPlan?.searches_per_month || 30,
+        createdAt: new Date(),
+        searchHistory: [],
+        subscriptionId,
+        organizationId,
+        planName: selectedPlan?.name || selectedPlan?.display_name || 'Básico'
+      })
+      console.log('✅ users/plan/current criado')
 
       if (subscriptionId) {
         console.log('📈 Atualizando contador de assinatura...')
