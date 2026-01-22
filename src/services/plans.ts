@@ -59,6 +59,18 @@ export async function getUserPlan(userId: string): Promise<UserPlan | null> {
  */
 export async function canUserSearch(userId: string): Promise<boolean> {
   try {
+    // ADMIN tem consultas ilimitadas (sem plano)
+    const userRef = doc(db, 'users', userId)
+    const userSnap = await getDoc(userRef)
+    
+    if (userSnap.exists()) {
+      const userData = userSnap.data()
+      if (userData.email === 'innovagenoi@gmail.com' || userData.role === 'admin') {
+        console.log('✅ Admin user - unlimited searches')
+        return true
+      }
+    }
+    
     // Tentar buscar de userPlans primeiro (sistema de assinaturas)
     const userPlanRef = doc(db, 'userPlans', userId)
     const userPlanSnap = await getDoc(userPlanRef)

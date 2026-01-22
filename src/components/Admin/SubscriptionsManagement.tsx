@@ -292,8 +292,8 @@ export function SubscriptionsManagement() {
     
     // NOVO: Validar limite de usuários
     const plan = plans.find(p => p.id === newSub.planId)
-    if (plan && newSub.userIds.length > plan.maxUsers) {
-      toast.error(`Este plano permite no máximo ${plan.maxUsers} usuários!`)
+    if (plan && newSub.userIds.length > (plan.max_users || 999)) {
+      toast.error(`Este plano permite no máximo ${plan.max_users || 999} usuários!`)
       return
     }
     
@@ -345,9 +345,9 @@ export function SubscriptionsManagement() {
         startDate,
         endDate,
         monthlyPrice: plan.price,
-        maxUsers: plan.maxUsers,
-        searchesPerUser: plan.searchesPerUser,
-        totalSearchesLimit: plan.maxUsers * plan.searchesPerUser,
+        maxUsers: plan.max_users || 999,  // Corrigido: max_users ao invés de maxUsers
+        searchesPerUser: plan.searchesPerUser || plan.searches_per_month || 30,
+        totalSearchesLimit: (plan.max_users || 999) * (plan.searchesPerUser || plan.searches_per_month || 30),
         currentUsers: newSub.userIds.length,
         totalSearchesUsed: 0,
         isTrial: false,
@@ -396,7 +396,7 @@ export function SubscriptionsManagement() {
                 organizationType: 'company',
                 planId: plan.id,
                 planName: plan.name,
-                searchesLimit: plan.searchesPerUser,
+                searchesLimit: plan.searchesPerUser || plan.searches_per_month || 30,
                 updatedAt: new Date()
               })
               console.log(`  ✅ Usuário ${userId} vinculado (atualizado)`)
@@ -411,7 +411,7 @@ export function SubscriptionsManagement() {
                 planName: plan.name,
                 role: 'member',
                 searchesUsed: 0,  // ✅ Começa com 0 para novo usuário
-                searchesLimit: plan.searchesPerUser,
+                searchesLimit: plan.searchesPerUser || plan.searches_per_month || 30,
                 status: 'active',
                 createdAt: new Date(),
                 updatedAt: new Date()
@@ -431,7 +431,7 @@ export function SubscriptionsManagement() {
             await setDoc(userPlanCurrentRef, {
               tier: 'subscription',
               searchesUsed: currentSearchesUsed,  // ✅ PRESERVA o valor atual!
-              searchesLimit: plan.searchesPerUser,
+              searchesLimit: plan.searchesPerUser || plan.searches_per_month || 30,
               createdAt: currentPlanSnap.exists() ? currentPlanSnap.data()?.createdAt : new Date(),
               searchHistory: currentPlanSnap.exists() ? currentPlanSnap.data()?.searchHistory || [] : [],
               subscriptionId: subRef.id,
