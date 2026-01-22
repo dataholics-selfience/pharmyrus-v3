@@ -150,16 +150,60 @@ export function SignupPage() {
       
       console.log('✅ Firestore user document created')
       
-      // 4. Assign FREE plan (usando formato plans.ts)
+      // 4. Buscar plano padrão (free) e atribuir
+      const defaultPlanId = 'free' // Plano padrão para novos usuários
+      const planRef = doc(db, 'plans', defaultPlanId)
+      const planSnap = await getDoc(planRef)
+      
+      if (!planSnap.exists()) {
+        throw new Error(`Plano padrão "${defaultPlanId}" não encontrado. Configure-o no Admin.`)
+      }
+      
+      const planData = planSnap.data()
+      
+      // Criar userPlan (novo sistema)
+      await setDoc(doc(db, 'userPlans', user.uid), {
+        user_id: user.uid,
+        plan_id: defaultPlanId,
+        plan_version: planData.version || 1,
+        
+        // Quotas (copiadas do plano)
+        searches_limit: planData.searches_per_month,
+        exports_limit: planData.exports_per_month || 0,
+        ai_analysis_limit: planData.ai_analysis_per_month || 0,
+        
+        // Usage
+        searchesUsed: 0,
+        exports_used: 0,
+        ai_analysis_used: 0,
+        
+        // Period
+        usage_period_start: new Date().toISOString().slice(0, 7) + '-01', // Primeiro dia do mês
+        usage_period_end: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().slice(0, 10), // Último dia do mês
+        
+        // Subscription
+        status: 'active',
+        started_at: new Date(),
+        
+        // Sync
+        last_synced_at: new Date(),
+        needs_sync: false,
+        
+        // Metadata
+        created_at: new Date(),
+        updated_at: new Date()
+      })
+      
+      // Também criar em users/{uid}/plan/current para compatibilidade com sistema antigo
       await setDoc(doc(db, 'users', user.uid, 'plan', 'current'), {
         tier: 'free',
         searchesUsed: 0,
-        searchesLimit: 1,
+        searchesLimit: planData.searches_per_month,
         createdAt: new Date(),
         searchHistory: []
       })
       
-      console.log('✅ Plan document created')
+      console.log(`✅ Plano "${defaultPlanId}" atribuído (${planData.searches_per_month} consultas/mês)`)
       
       // 5. Add new company to database if not in list
       if (!PHARMA_COMPANIES.includes(company)) {

@@ -55,12 +55,16 @@ export function AdminPlans() {
       const allPlans = await getPlans()
       setPlans(allPlans)
 
-      // Load user counts
+      // Load user counts (await all promises)
       const counts: Record<string, number> = {}
-      for (const plan of allPlans) {
-        counts[plan.id] = await getPlanUserCount(plan.id)
-      }
+      await Promise.all(
+        allPlans.map(async (plan) => {
+          counts[plan.id] = await getPlanUserCount(plan.id)
+        })
+      )
       setUserCounts(counts)
+      
+      console.log('📊 User counts:', counts)
     } catch (error) {
       console.error('Error loading plans:', error)
     } finally {
@@ -207,18 +211,6 @@ export function AdminPlans() {
                   <span className="text-muted-foreground">Consultas/mês:</span>
                   <span className="font-medium">{plan.searches_per_month}</span>
                 </div>
-                {plan.exports_per_month && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Exports/mês:</span>
-                    <span className="font-medium">{plan.exports_per_month}</span>
-                  </div>
-                )}
-                {plan.ai_analysis_per_month && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Análises AI/mês:</span>
-                    <span className="font-medium">{plan.ai_analysis_per_month}</span>
-                  </div>
-                )}
               </div>
 
               {/* Pricing */}
@@ -352,14 +344,9 @@ interface EditPlanDialogProps {
 
 function EditPlanDialog({ plan, userCount, onClose, onSave }: EditPlanDialogProps) {
   const [searches, setSearches] = useState(plan.searches_per_month)
-  const [exports, setExports] = useState(plan.exports_per_month || 0)
-  const [aiAnalysis, setAiAnalysis] = useState(plan.ai_analysis_per_month || 0)
   const [saving, setSaving] = useState(false)
 
-  const hasChanges = 
-    searches !== plan.searches_per_month ||
-    exports !== plan.exports_per_month ||
-    aiAnalysis !== plan.ai_analysis_per_month
+  const hasChanges = searches !== plan.searches_per_month
 
   const handleSave = async () => {
     if (!hasChanges) {
@@ -370,16 +357,8 @@ function EditPlanDialog({ plan, userCount, onClose, onSave }: EditPlanDialogProp
     const confirmed = confirm(
       `📊 Atualizar ${plan.display_name}?\n\n` +
       `${userCount} usuários serão sincronizados automaticamente.\n\n` +
-      `Mudanças:\n` +
-      (searches !== plan.searches_per_month 
-        ? `- Consultas: ${plan.searches_per_month} → ${searches}\n` 
-        : '') +
-      (exports !== plan.exports_per_month 
-        ? `- Exports: ${plan.exports_per_month || 0} → ${exports}\n` 
-        : '') +
-      (aiAnalysis !== plan.ai_analysis_per_month 
-        ? `- Análises AI: ${plan.ai_analysis_per_month || 0} → ${aiAnalysis}\n` 
-        : '') +
+      `Mudança:\n` +
+      `- Consultas: ${plan.searches_per_month} → ${searches}\n` +
       `\nContinuar?`
     )
 
@@ -388,9 +367,7 @@ function EditPlanDialog({ plan, userCount, onClose, onSave }: EditPlanDialogProp
     setSaving(true)
     try {
       await onSave({
-        searches_per_month: searches,
-        exports_per_month: exports,
-        ai_analysis_per_month: aiAnalysis
+        searches_per_month: searches
       })
     } finally {
       setSaving(false)
@@ -417,28 +394,9 @@ function EditPlanDialog({ plan, userCount, onClose, onSave }: EditPlanDialogProp
               onChange={(e) => setSearches(Number(e.target.value))}
               min={0}
             />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="exports">Exports por mês</Label>
-            <Input
-              id="exports"
-              type="number"
-              value={exports}
-              onChange={(e) => setExports(Number(e.target.value))}
-              min={0}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="aiAnalysis">Análises AI por mês</Label>
-            <Input
-              id="aiAnalysis"
-              type="number"
-              value={aiAnalysis}
-              onChange={(e) => setAiAnalysis(Number(e.target.value))}
-              min={0}
-            />
+            <p className="text-xs text-muted-foreground">
+              Quantidade de buscas permitidas por mês
+            </p>
           </div>
 
           {userCount > 0 && (
@@ -485,8 +443,6 @@ function CreatePlanDialog({ onClose, onCreate }: CreatePlanDialogProps) {
   const [name, setName] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [searches, setSearches] = useState(30)
-  const [exports, setExports] = useState(50)
-  const [aiAnalysis, setAiAnalysis] = useState(20)
   const [price, setPrice] = useState(97)
   const [creating, setCreating] = useState(false)
 
@@ -502,8 +458,8 @@ function CreatePlanDialog({ onClose, onCreate }: CreatePlanDialogProps) {
         name,
         display_name: displayName,
         searches_per_month: searches,
-        exports_per_month: exports,
-        ai_analysis_per_month: aiAnalysis,
+        exports_per_month: 0,
+        ai_analysis_per_month: 0,
         price,
         currency: 'BRL',
         billing_period: 'monthly'
@@ -519,7 +475,7 @@ function CreatePlanDialog({ onClose, onCreate }: CreatePlanDialogProps) {
         <DialogHeader>
           <DialogTitle>Criar Novo Plano</DialogTitle>
           <DialogDescription>
-            Configure as quotas e o preço do novo plano
+            Configure o nome e a quantidade de consultas mensais
           </DialogDescription>
         </DialogHeader>
 
@@ -534,7 +490,7 @@ function CreatePlanDialog({ onClose, onCreate }: CreatePlanDialogProps) {
                 setPlanId(val)
                 setName(val)
               }}
-              placeholder="pro"
+              placeholder="free, pro, enterprise"
             />
             <p className="text-xs text-muted-foreground">
               Apenas letras minúsculas, números, - e _ (ex: free, pro, enterprise)
@@ -547,56 +503,38 @@ function CreatePlanDialog({ onClose, onCreate }: CreatePlanDialogProps) {
               id="displayName"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="Plano Pro"
+              placeholder="Plano Free, Plano Pro, etc"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="searches">Consultas/mês</Label>
-              <Input
-                id="searches"
-                type="number"
-                value={searches}
-                onChange={(e) => setSearches(Number(e.target.value))}
-                min={0}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="exports">Exports/mês</Label>
-              <Input
-                id="exports"
-                type="number"
-                value={exports}
-                onChange={(e) => setExports(Number(e.target.value))}
-                min={0}
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="searches">Consultas por mês *</Label>
+            <Input
+              id="searches"
+              type="number"
+              value={searches}
+              onChange={(e) => setSearches(Number(e.target.value))}
+              min={0}
+              placeholder="30"
+            />
+            <p className="text-xs text-muted-foreground">
+              Quantidade de buscas permitidas por mês
+            </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="aiAnalysis">Análises AI/mês</Label>
-              <Input
-                id="aiAnalysis"
-                type="number"
-                value={aiAnalysis}
-                onChange={(e) => setAiAnalysis(Number(e.target.value))}
-                min={0}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="price">Preço (BRL)</Label>
-              <Input
-                id="price"
-                type="number"
-                value={price}
-                onChange={(e) => setPrice(Number(e.target.value))}
-                min={0}
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="price">Preço Mensal (BRL) *</Label>
+            <Input
+              id="price"
+              type="number"
+              value={price}
+              onChange={(e) => setPrice(Number(e.target.value))}
+              min={0}
+              placeholder="97"
+            />
+            <p className="text-xs text-muted-foreground">
+              Valor em reais (R$). Use 0 para planos gratuitos.
+            </p>
           </div>
         </div>
 
